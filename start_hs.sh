@@ -1,0 +1,92 @@
+#!/bin/bash -x
+
+HSID=$1
+HOST_IP=$2
+
+# for db in account device mediaapi syncapi roomserver serverkey federationsender publicroomsapi appservice naffka; do
+#     createdb -O dendrite dendrite${HSID}_$db
+# done
+
+# # make sure that you have a monolith image built as:
+# # docker build -t monolith .
+# # using our custom Dockerfile for dendrite (n.b. *not* docker-compose.yml, as we use a local postgres)
+
+# if [[ ! -z `docker container ls -f name=synapse${HSID} -q -a` ]]
+# then
+# 	# reuse existing container
+# 	exit
+# fi
+
+# docker run -d --name dendrite$HSID -e HSID monolith
+
+if ! dropdb --if-exists synapse${HSID} ; then
+	echo "Failed to drop database, bailing"
+	exit 1
+fi
+
+psql --variable="ON_ERROR_STOP=" -f synapse_template.sql > /dev/null 2>&1
+createdb -O synapse synapse${HSID} -T synapse_template
+
+# shouldn't we put this in the template?
+psql synapse$HSID <<EOT
+insert into users(name, password_hash) values ('@matthew:synapse$HSID', '\$2b\$12\$oOZr9g6bPScmPrpJHv/uuu2piCg7kN8ia/BAlfW6wske/1kLf8kze');
+insert into access_tokens(id, user_id, token) values (123123, '@matthew:synapse$HSID', 'fake_token');
+insert into profiles(user_id) values ('matthew');
+EOT
+
+# insert into users(name, password_hash) values ('@amandine:synapse$HSID', '\$2b\$12\$oOZr9g6bPScmPrpJHv/uuu2piCg7kN8ia/BAlfW6wske/1kLf8kze');
+# insert into access_tokens(id, user_id, token) values (123123, '@amandine:synapse$HSID', 'fake_token');
+# insert into profiles(user_id) values ('amandine');
+
+# build our synapse via:
+# docker build -t synapse -f docker/Dockerfile .
+
+# ensure our network exists with:
+# docker network create --driver bridge mesh
+
+# ensure that KSM is enabled on the host:
+#
+# for macOS:
+# screen ~/Library/Containers/com.docker.docker/Data/vms/0/tty
+# echo 1 > /sys/kernel/mm/ksm/run
+# echo 10000 > /sys/kernel/mm/ksm/pages_to_scan # 40MB of pages at a time
+# grep -H '' /sys/kernel/mm/ksm/run/*
+#
+# N.B. if (and only if) we're playing around with MTU, will need something like:
+# ip link set dev br-757a634a355d mtu 150
+# ...or whatever our bridge is, as PMTU doesn't seem to be working
+# and otherwise we'll get locked out of the guest.
+
+docker run -d --name synapse$HSID \
+	--privileged \
+	--network mesh \
+	--hostname synapse$HSID \
+	-e SYNAPSE_SERVER_NAME=synapse${HSID} \
+	-e SYNAPSE_REPORT_STATS=no \
+	-e SYNAPSE_ENABLE_REGISTRATION=yes \
+	-e SYNAPSE_LOG_LEVEL=INFO \
+	-e POSTGRES_DB=synapse$HSID \
+	-e POSTGRES_PASSWORD=synapseftw \
+	-p $((18000 + HSID)):8008 \
+	-p $((19000 + HSID)):3000 \
+	-p $((20000 + HSID)):5683/udp \
+    -e POSTGRES_HOST=$HOST_IP \
+    -e SYNAPSE_LOG_HOST=$HOST_IP \
+    -e SYNAPSE_USE_PROXY=1 \
+    -e PROXY_DUMP_PAYLOADS=1 \
+	--mount type=bind,source=/home/brendan/Documents/matrix/low-bandwidth/synapse/synapse,destination=/usr/local/lib/python3.7/site-packages/synapse \
+	synapse
+
+# or replace the last line for a dummy docker...
+# 	--entrypoint '' \
+#	synapse \
+#	sleep 365d
+
+# One can also mount an actual synapse working directory to be able to quickly
+# edit synaspe without rebuilding. Simply requires a docker restart after edit...
+# --mount type=bind,source=/home/erikj/git/synapse/synapse,destination=/usr/local/lib/python3.7/site-packages/synapse \
+# Similiarly for the coap-proxy:
+# --mount type=bind,source=/home/erikj/git/coap-proxy,destination=/proxy
+
+# to inspect:
+# docker run -i -t --entrypoint /bin/bash synapse
