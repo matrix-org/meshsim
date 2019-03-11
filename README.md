@@ -2,6 +2,21 @@
 
 ![meshsim](meshsim.png)
 
+Meshsim lets you define and manage an arbitrary network of Matrix homeservers
+in docker containers via a web interface.  Servers are instantiated by clicking
+on the canvas, and the network topology and latency may be adjusted by dragging
+servers around.  Servers connect to the nearest 5 nodes within the given latency
+threshold.
+
+Traffic on the network is visualised in realtime by having servers
+emit telemetry to the simulator via websocket, showing which events are emitted
+and received from which server via which network link.  Events are shown as
+animated circles which follow the network links between servers.  When a server
+processes an inbound event, it shows an animation of the event expanding and popping
+like a bubble.
+
+#### Notes
+
  * Requires a HS with a Dockerfile which lets it be run in a Debianish container to support KSM.
  * Uses KSM to share memory between the server containers.
  * Uses a local postgres shared across all the servers as their DB for simplicity.
@@ -10,7 +25,7 @@
    * We deliberately use this rather than docker-compose or docker stack/swarm given the meshsim itself is acting as an orchestrator.
  * Uses D3 to visualise and control the network topology in browser.
  * Manually puppets the routing tables of the servers based on running dijkstra on the network topo
- * Manually puppets TC on theservers to cripple bandwidth, latency & jitter as desired.
+ * Manually puppets TC on the servers to cripple bandwidth, latency & jitter as desired.
    * Rather than forcing docker to spin up multiple interfaces per host (which would require gutwrenching the docker's network namespaces), we instead cripple bandwidth on egress traffic per upstream router (as identified by its MAC).
 
 Now usable in general, but may be a bit fiddly to get up and running.
