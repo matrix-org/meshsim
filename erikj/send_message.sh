@@ -8,7 +8,7 @@ function send_message {
         port=$(expr 18000 + $id)
         room_id=$2
         res=$(curl "http://localhost:$port/_matrix/client/r0/rooms/$room_id/send/m.room.message?access_token=fake_token" -XPOST -s -d'{"body":"test from '$port': '"$MESSAGE"'", "msgtype":"m.text"}')
-        echo "Result from $id: $res" 
+        echo "Result from $id: $res"
 }
 
 res=$(curl "http://localhost:18000/_matrix/client/r0/join/%23test:synapse0?access_token=fake_token" -XPOST -s)

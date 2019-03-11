@@ -1,5 +1,7 @@
 ### Simulates a mesh of homeservers with Docker.
 
+![meshsim](meshsim.png)
+
  * Requires a HS with a Dockerfile which lets it be run in a Debianish container to support KSM.
  * Uses KSM to share memory between the server containers.
  * Uses a local postgres shared across all the servers as their DB for simplicity.
@@ -36,7 +38,8 @@ Now usable in general, but may be a bit fiddly to get up and running.
      containers will be able to hit. Set `listen_addresses = '<bridge ip>,localhost'`,
      although that will only work after step "create a docker network".
      If you can't find the config file, have a look in `/var/lib/pgsql/data/`.
-   * edit pg_hba.conf to ensure connections from docker container IPs will be allowed (e.g. by enabling `trust` for user `synapse`). Example:
+   * edit pg_hba.conf to ensure connections from docker container IPs will be
+     allowed (e.g. by enabling `trust` for user `synapse`). Example:
 
 ```
 # Add the following to the end of the file
@@ -44,13 +47,16 @@ local   all             synapse                                 trust
 host    all             all             YOUR_DOCKER_HOST_IP/16  trust
 ```
 
-   * Recommended: It's worth making the user you plan to run meshsim a superuser in postgres, such that commands do not need to be prefixed with `sudo -u postgres`. You can do so with the following:
+   * Recommended: It's worth making the user you plan to run meshsim a superuser
+   in postgres, such that commands do not need to be prefixed with `sudo -u postgres`.
+   You can do so with the following:
 
    ```
    sudo -u postgres createuser --superuser --no-password user
    ```
 
- * Optional: Enable KSM on your host so your synapses can deduplicate RAM as much as possible
+ * Optional: Enable KSM on your host so your synapses can deduplicate RAM
+   as much as possible
 
  ```sh
 screen ~/Library/Containers/com.docker.docker/Data/vms/0/tty  # on Docker-for-Mac
@@ -143,6 +149,9 @@ docker run -d --name synapse$HSID \
  * drag to move them around
  * => profit
 
+You can log into the individual synapse containers as `docker exec -it synapse$N /bin/bash` to traceroute, ping
+and generally see what see what's going on.
+
 #### Using the CoAP proxy
 
 * Check out the proxy in the `matrix-low-bandwidth` directory
@@ -161,3 +170,22 @@ matrix-low-bandwidth$ cd coap-proxy
 
 * Make clients talk to http://localhost:8888
 * => profit
+
+#### License
+
+Copyright 2019 New Vector Ltd
+
+This file is part of meshsim.
+
+meshsim is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+meshsim is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with coap-proxy.  If not, see <https://www.gnu.org/licenses/>.

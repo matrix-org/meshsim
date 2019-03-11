@@ -2,6 +2,7 @@
 
 END=$1
 
+# the default password is 'secret'
 password_hash='$2b$12$sN0ba4CTkf0Z5n2OVdGekuEt1cJreZljx2AYFZQCBNhAMwpSXhIwK'
 
 for i in $(seq 0 $END); do
