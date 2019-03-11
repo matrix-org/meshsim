@@ -8,6 +8,9 @@ on the canvas, and the network topology and latency may be adjusted by dragging
 servers around.  Servers connect to the nearest 5 nodes within the given latency
 threshold.
 
+The bandwidth and latency of individual network links can be override by clicking
+on the link (which will turn red) and adjusting the specific values.
+
 Traffic on the network is visualised in realtime by having servers
 emit telemetry to the simulator via websocket, showing which events are emitted
 and received from which server via which network link.  Events are shown as
@@ -185,6 +188,11 @@ matrix-low-bandwidth$ cd coap-proxy
 
 * Make clients talk to http://localhost:8888
 * => profit
+
+#### Limitations
+
+Client-Server traffic shaping is only currently supported on macOS, as client->server traffic shaping
+is currently implemented on the host (client) side.
 
 #### License
 
