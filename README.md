@@ -18,6 +18,13 @@ animated circles which follow the network links between servers.  When a server
 processes an inbound event, it shows an animation of the event expanding and popping
 like a bubble.
 
+The default docker image that meshsim launches is https://github.com/matrix-org/meshsim-docker
+which provides both a Synapse and a [coap-proxy](https://github.com/matrix-org/coap-proxy)
+for low-bandwidth Matrix transport experimentation.
+
+Further details can be found in our FOSDEM 2019 talk about meshsim and coap-proxy at:
+https://matrix.org/blog/2019/03/12/breaking-the-100bps-barrier-with-matrix-meshsim-coap-proxy/
+
 #### Notes
 
  * Requires a HS with a Dockerfile which lets it be run in a Debianish container to support KSM.
