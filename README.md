@@ -8,7 +8,7 @@ on the canvas, and the network topology and latency may be adjusted by dragging
 servers around.  Servers connect to the nearest 5 nodes within the given latency
 threshold.
 
-The bandwidth and latency of individual network links can be override by clicking
+The bandwidth and latency of individual network links can be overridden by clicking
 on the link (which will turn red) and adjusting the specific values.
 
 Traffic on the network is visualised in realtime by having servers
