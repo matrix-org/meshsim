@@ -1,6 +1,6 @@
 ### Simulates a mesh of homeservers with Docker.
 
-![meshsim](meshsim.png)
+![meshsim](meshsim.gif)
 
 Meshsim lets you define and manage an arbitrary network of Matrix homeservers
 in docker containers via a web interface.  Servers are instantiated by clicking
