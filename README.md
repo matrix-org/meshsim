@@ -189,7 +189,7 @@ matrix-low-bandwidth$ cd coap-proxy
 * Make clients talk to http://localhost:8888
 * => profit
 
-#### Limitations
+#### Limitations
 
 Client-Server traffic shaping is only currently supported on macOS, as client->server traffic shaping
 is currently implemented on the host (client) side.
@@ -211,4 +211,4 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with coap-proxy.  If not, see <https://www.gnu.org/licenses/>.
+along with meshsim.  If not, see <https://www.gnu.org/licenses/>.
