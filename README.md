@@ -182,7 +182,7 @@ and generally see what see what's going on.
 * Check out the proxy in the `matrix-low-bandwidth` directory
 
 ```
-matrix-low-bandwidth$ git checkout https://github.com/matrix-org/coap-proxy.git
+matrix-low-bandwidth$ git clone https://github.com/matrix-org/coap-proxy.git
 matrix-low-bandwidth$ cd coap-proxy
 ```
 
