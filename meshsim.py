@@ -18,45 +18,43 @@
 # along with coap-proxy.  If not, see <https://www.gnu.org/licenses/>.
 
 import argparse
+import asyncio
+import atexit
 import json
 import os
-from math import sqrt
-import networkx as nx
-from quart import Quart, request, abort, jsonify, send_from_directory, websocket
 import subprocess
-import atexit
-import asyncio
+from contextlib import contextmanager
+from itertools import combinations
+from logging.config import dictConfig
+from math import sqrt
+
 import aiohttp
 import async_timeout
-from contextlib import contextmanager
-from itertools import chain, combinations
-from logging.config import dictConfig
+import networkx as nx
+from quart import Quart, abort, jsonify, request, send_from_directory, websocket
 from tenacity import retry, wait_fixed
 
 args = None
 
-dictConfig({
-    'version': 1,
-    'loggers': {
-        'quart.app': {
-            'level': 'INFO',
-        },
-    },
-})
+dictConfig({"version": 1, "loggers": {"quart.app": {"level": "INFO"}}})
 
-loop = asyncio.get_event_loop()
 app = Quart(__name__)
 
-event_notif_queue = asyncio.Queue()
+
+# We need to create this *after* start up so that it binds to correct event loop
+event_notif_queue = None
+
+
+@app.before_first_request
+def setup():
+    global event_notif_queue
+    event_notif_queue = asyncio.Queue()
+
 
 async def put(url, data):
     async with aiohttp.ClientSession() as session, async_timeout.timeout(30):
         async with session.put(
-            url,
-            data=data,
-            headers={
-                'Content-type': 'application/json'
-            },
+            url, data=data, headers={"Content-type": "application/json"}
         ) as response:
             return await response.text()
 
@@ -72,21 +70,19 @@ class Server(object):
         self.mac = None
         Server._id = Server._id + 1
 
-        self.paths = None # cache of shortest paths
-        self.path_costs = None # cache of shortest path costs
+        self.paths = None  # cache of shortest paths
+        self.path_costs = None  # cache of shortest path costs
 
         self.neighbours = set()
 
     def toDict(self):
-        return {
-            'id': self.id,
-            'ip': self.ip,
-            'mac': self.mac,
-        }
+        return {"id": self.id, "ip": self.ip, "mac": self.mac}
 
     async def start(self):
         global args
-        proc = await asyncio.create_subprocess_exec("./start_hs.sh", str(self.id), args.host)
+        proc = await asyncio.create_subprocess_exec(
+            "./start_hs.sh", str(self.id), args.host
+        )
         code = await proc.wait()
         if code != 0:
             raise Exception("Failed to start HS")
@@ -94,15 +90,13 @@ class Server(object):
 
     async def update_network_info(self):
         proc = await asyncio.create_subprocess_exec(
-            "./get_hs_ip.sh", str(self.id),
-            stdout=asyncio.subprocess.PIPE,
+            "./get_hs_ip.sh", str(self.id), stdout=asyncio.subprocess.PIPE
         )
         stdout, _ = await proc.communicate()
         self.ip = stdout.decode().strip()
 
         proc = await asyncio.create_subprocess_exec(
-            "./get_hs_mac.sh", str(self.id),
-            stdout=asyncio.subprocess.PIPE,
+            "./get_hs_mac.sh", str(self.id), stdout=asyncio.subprocess.PIPE
         )
         stdout, _ = await proc.communicate()
         self.mac = stdout.decode().strip()
@@ -116,14 +110,11 @@ class Server(object):
         #   }, ...
         # ]
         data = json.dumps(routes, indent=4)
-        app.logger.info('setting routes for %d: %s', self.id, data)
+        app.logger.info("setting routes for %d: %s", self.id, data)
 
-        r = await put(
-            'http://localhost:%d/routes' % (19000 + self.id),
-            data,
-        )
+        r = await put("http://localhost:%d/routes" % (19000 + self.id), data)
 
-        app.logger.info('Set route with result for %d: %s', self.id, r)
+        app.logger.info("Set route with result for %d: %s", self.id, r)
 
     @retry(wait=wait_fixed(1))
     async def set_network_health(self, health):
@@ -148,52 +139,46 @@ class Server(object):
         #     ]
         # }
         data = json.dumps(health, indent=4)
-        app.logger.info('setting health for %d: %s', self.id, data)
+        app.logger.info("setting health for %d: %s", self.id, data)
 
         # only apply client health on the host side once (picking server 0 arbitrarily)
         if self.id == 0:
-            for client in health.get('clients', []):
+            for client in health.get("clients", []):
                 proc = await asyncio.create_subprocess_exec(
                     "./set_client_health_host.sh",
-                    str(client['source_port']),
-                    str(client['bandwidth']),
-                    str(client['latency']),
-                    str(client['jitter']),
+                    str(client["source_port"]),
+                    str(client["bandwidth"]),
+                    str(client["latency"]),
+                    str(client["jitter"]),
                     stdout=asyncio.subprocess.PIPE,
                 )
                 stdout, _ = await proc.communicate()
                 app.logger.info(
-                    'with host result for %d: %s',
-                    self.id, stdout.decode().strip()
+                    "with host result for %d: %s", self.id, stdout.decode().strip()
                 )
 
-        r = await put(
-            'http://localhost:%d/health' % (19000 + self.id),
-            data,
-        )
+        r = await put("http://localhost:%d/health" % (19000 + self.id), data)
 
-        app.logger.info('with result for %d: %s', self.id, r)
+        app.logger.info("with result for %d: %s", self.id, r)
 
     def stop(self):
         subprocess.call(["./stop_hs.sh", str(self.id)])
 
     def distance(self, server2):
-        return sqrt((server2.x - self.x)**2 + (server2.y - self.y)**2)
+        return sqrt((server2.x - self.x) ** 2 + (server2.y - self.y) ** 2)
 
     def connect(self, server2, limit=None):
-        if (limit and (
-            len(self.neighbours) > limit or len(server2.neighbours) > limit
-        )):
+        if limit and (len(self.neighbours) > limit or len(server2.neighbours) > limit):
             return False
 
-        #app.logger.info("connecting %d to %d", self.id, server2.id)
+        # app.logger.info("connecting %d to %d", self.id, server2.id)
 
         self.neighbours.add(server2)
         server2.neighbours.add(self)
         return True
 
     def reset_neighbours(self):
-        #app.logger.info("resetting neighbours for %d", self.id)
+        # app.logger.info("resetting neighbours for %d", self.id)
         self.neighbours = set()
 
 
@@ -266,7 +251,9 @@ class Mesh:
         if self.rewiring:
             # no point in stacking them up
             if self.pending_rewire:
-                app.logger.info("Skipping rewire as one already happening and one already queued")
+                app.logger.info(
+                    "Skipping rewire as one already happening and one already queued"
+                )
             else:
                 app.logger.info("Deferring rewire as one already happening")
             self.pending_rewire = True
@@ -282,7 +269,6 @@ class Mesh:
                 self.pending_rewire = False
                 await self.safe_rewire()
 
-
     async def _rewire(self):
         if self.cost_function == Mesh.COST_MIN_LATENCY:
             cost_function = self.get_latency
@@ -290,9 +276,7 @@ class Mesh:
             cost_function = self.get_bandwidth_cost
 
         started_servers = {
-            i: self.servers[i]
-            for i in self.servers
-            if self.servers[i].ip is not None
+            i: self.servers[i] for i in self.servers if self.servers[i].ip is not None
         }
 
         # only try to wire servers which have started up and have IPs
@@ -316,16 +300,16 @@ class Mesh:
         # neighbours in place from both 'i' and 'j' sides of the matrix before
         # we know which are actually closest.
         for server in started_servers.values():
-            neighbour_costs = {s.id: cost_function(server, s) for s in server.neighbours}
+            neighbour_costs = {
+                s.id: cost_function(server, s) for s in server.neighbours
+            }
             server.reset_neighbours()
-            for (j, cost) in sorted(
-                neighbour_costs.items(), key=lambda x: x[1]
-            )[0:4]:
+            for (j, cost) in sorted(neighbour_costs.items(), key=lambda x: x[1])[0:4]:
                 if server.connect(started_servers[j], 4):
                     self.graph.add_edge(server.id, j, weight=cost)
 
-        self.paths = nx.shortest_path(self.graph, weight='weight')
-        self.path_costs = dict(nx.shortest_path_length(self.graph, weight='weight'))
+        self.paths = nx.shortest_path(self.graph, weight="weight")
+        self.path_costs = dict(nx.shortest_path_length(self.graph, weight="weight"))
 
         # app.logger.info("calculated shortest paths as %r", self.paths)
 
@@ -335,45 +319,59 @@ class Mesh:
         futures = (
             # apply the network topology in terms of routing table
             [
-                self.get_server(source_id).set_routes([
-                    {
-                        "dst": self.get_server(dest_id).toDict(),
-                        "via": (
-                            self.get_server(self.paths[source_id][dest_id][1]).toDict()
-                            if len(self.paths[source_id].get(dest_id, [])) > 1
-                            else None
-                        ),
-                        "cost": self.path_costs[source_id].get(dest_id)
-                    }
-                    for dest_id in started_servers
-                    if source_id != dest_id
-                ])
+                self.get_server(source_id).set_routes(
+                    [
+                        {
+                            "dst": self.get_server(dest_id).toDict(),
+                            "via": (
+                                self.get_server(
+                                    self.paths[source_id][dest_id][1]
+                                ).toDict()
+                                if len(self.paths[source_id].get(dest_id, [])) > 1
+                                else None
+                            ),
+                            "cost": self.path_costs[source_id].get(dest_id),
+                        }
+                        for dest_id in started_servers
+                        if source_id != dest_id
+                    ]
+                )
                 for source_id in started_servers
-            ] +
-
+            ]
+            +
             # apply the network characteristics to the peers
             [
-                self.get_server(i).set_network_health({
-                    "peers": [
-                        {
-                            "peer": neighbour.toDict(),
-                            "bandwidth": self.get_bandwidth(self.get_server(i), neighbour),
-                            "latency": self.get_latency(self.get_server(i), neighbour),
-                            "jitter": self.get_jitter(self.get_server(i), neighbour),
-                            "packet_loss": self.get_packet_loss(self.get_server(i), neighbour),
-                        }
-                        for neighbour in self.get_server(i).neighbours
-                    ],
-                    "clients": [
-                        {
-                            "source_port": 0,  # FIXME once we support multiple clients
-                            "bandwidth": self.client_bandwidth,
-                            "latency": self.client_latency,
-                            "jitter": self.client_jitter,
-                            "loss": self.client_loss,
-                        }
-                    ],
-                })
+                self.get_server(i).set_network_health(
+                    {
+                        "peers": [
+                            {
+                                "peer": neighbour.toDict(),
+                                "bandwidth": self.get_bandwidth(
+                                    self.get_server(i), neighbour
+                                ),
+                                "latency": self.get_latency(
+                                    self.get_server(i), neighbour
+                                ),
+                                "jitter": self.get_jitter(
+                                    self.get_server(i), neighbour
+                                ),
+                                "packet_loss": self.get_packet_loss(
+                                    self.get_server(i), neighbour
+                                ),
+                            }
+                            for neighbour in self.get_server(i).neighbours
+                        ],
+                        "clients": [
+                            {
+                                "source_port": 0,  # FIXME once we support multiple clients
+                                "bandwidth": self.client_bandwidth,
+                                "latency": self.client_latency,
+                                "jitter": self.client_jitter,
+                                "loss": self.client_loss,
+                            }
+                        ],
+                    }
+                )
                 for i in started_servers
             ]
         )
@@ -390,12 +388,15 @@ class Mesh:
             server2 = tmp
 
         override = self.overrides.get(server1.id, {}).get(server2.id, None)
-        if override and override.get('bandwidth') is not None:
-            return override.get('bandwidth')
+        if override and override.get("bandwidth") is not None:
+            return override.get("bandwidth")
 
         if self.decay_bandwidth:
             distance = server1.distance(server2)
-            return int(self.bandwidth * ((self.max_latency - server1.distance(server2)) / self.max_latency))
+            return int(
+                self.bandwidth
+                * ((self.max_latency - server1.distance(server2)) / self.max_latency)
+            )
         else:
             return self.bandwidth
 
@@ -406,10 +407,10 @@ class Mesh:
             server2 = tmp
 
         override = self.overrides.get(server1.id, {}).get(server2.id, None)
-        if override and override.get('latency') is not None:
-            return override['latency'] * (self.latency_scale/100)
+        if override and override.get("latency") is not None:
+            return override["latency"] * (self.latency_scale / 100)
 
-        return int(server1.distance(server2)) * (self.latency_scale/100)
+        return int(server1.distance(server2)) * (self.latency_scale / 100)
 
     def get_jitter(self, server1, server2):
         if server1.id > server2.id:
@@ -418,11 +419,10 @@ class Mesh:
             server2 = tmp
 
         override = self.overrides.get(server1.id, {}).get(server2.id, None)
-        if override and override.get('jitter') is not None:
-            return override['jitter']
+        if override and override.get("jitter") is not None:
+            return override["jitter"]
 
         return self.jitter
-
 
     def get_packet_loss(self, server1, server2):
         if server1.id > server2.id:
@@ -431,93 +431,91 @@ class Mesh:
             server2 = tmp
 
         override = self.overrides.get(server1.id, {}).get(server2.id, None)
-        if override and override.get('packet_loss') is not None:
-            return override['packet_loss']
+        if override and override.get("packet_loss") is not None:
+            return override["packet_loss"]
 
         return self.packet_loss
 
-
     def set_link_health(self, server1_id, server2_id, health):
         override = {}
-        for t in ['bandwidth', 'latency', 'jitter', 'packet_loss']:
+        for t in ["bandwidth", "latency", "jitter", "packet_loss"]:
             if t in health:
                 override[t] = int(health.get(t)) if health.get(t) is not None else None
 
-        self.overrides.setdefault(server1_id, {}).setdefault(server2_id, {}).update(override)
+        self.overrides.setdefault(server1_id, {}).setdefault(server2_id, {}).update(
+            override
+        )
         app.logger.info("link health overrides now %r", self.overrides)
 
     def get_d3_data(self):
-        data = {
-            'nodes': [],
-            'links': [],
-        }
+        data = {"nodes": [], "links": []}
 
         # XXX: frontend relies on index in data.nodes matches the server ID
         for _, server in sorted(self.servers.items()):
-            data['nodes'].append({
-                'name': server.id,
-                'x': server.x,
-                'y': server.y,
-            })
+            data["nodes"].append({"name": server.id, "x": server.x, "y": server.y})
             for neighbour in server.neighbours:
                 if server.id < neighbour.id:
                     link = {
-                        'source': server.id,
-                        'target': neighbour.id,
-                        'bandwidth': self.get_bandwidth(server, neighbour),
-                        'latency': self.get_latency(server, neighbour),
-                        'jitter': self.get_jitter(server, neighbour),
-                        'packet_loss': self.get_packet_loss(server, neighbour),
+                        "source": server.id,
+                        "target": neighbour.id,
+                        "bandwidth": self.get_bandwidth(server, neighbour),
+                        "latency": self.get_latency(server, neighbour),
+                        "jitter": self.get_jitter(server, neighbour),
+                        "packet_loss": self.get_packet_loss(server, neighbour),
                     }
 
                     overrides = self.overrides.get(server.id, {}).get(neighbour.id, {})
                     for override in overrides:
                         if overrides[override] is not None:
-                            link.setdefault('overrides', {})[override] = True
+                            link.setdefault("overrides", {})[override] = True
 
-                    data['links'].append(link)
+                    data["links"].append(link)
 
         return json.dumps(data, sort_keys=True, indent=4)
 
     def get_costs(self):
         if not self.path_costs:
-            self.path_costs = dict(nx.shortest_path_length(self.graph, weight='weight'))
+            self.path_costs = dict(nx.shortest_path_length(self.graph, weight="weight"))
         return self.paths_costs
 
     def get_path(self, origin, target):
         if not self.paths:
-            self.paths = nx.shortest_path(self.graph, weight='weight')
+            self.paths = nx.shortest_path(self.graph, weight="weight")
         return self.paths[origin][target]
 
     def get_defaults(self):
         return {
-            'bandwidth': self.bandwidth,
-            'decay_bandwidth': self.decay_bandwidth,
-            'max_latency': self.max_latency,
-            'min_bandwidth': self.min_bandwidth,
-            'jitter': self.jitter,
-            'packet_loss': self.packet_loss,
-            'cost_function': self.cost_function,
-            'latency_scale': self.latency_scale,
-            'client_latency': self.client_latency,
-            'client_bandwidth': self.client_bandwidth,
-            'client_jitter': self.client_jitter,
-            'client_loss': self.client_loss,
+            "bandwidth": self.bandwidth,
+            "decay_bandwidth": self.decay_bandwidth,
+            "max_latency": self.max_latency,
+            "min_bandwidth": self.min_bandwidth,
+            "jitter": self.jitter,
+            "packet_loss": self.packet_loss,
+            "cost_function": self.cost_function,
+            "latency_scale": self.latency_scale,
+            "client_latency": self.client_latency,
+            "client_bandwidth": self.client_bandwidth,
+            "client_jitter": self.client_jitter,
+            "client_loss": self.client_loss,
         }
 
     def set_defaults(self, defaults):
-        self.bandwidth       = int(defaults.get('bandwidth', self.bandwidth))
-        self.decay_bandwidth = bool(defaults.get('decay_bandwidth', self.decay_bandwidth))
-        self.max_latency     = int(defaults.get('max_latency', self.max_latency))
-        self.min_bandwidth   = int(defaults.get('min_bandwidth', self.min_bandwidth))
-        self.jitter          = int(defaults.get('jitter', self.jitter))
-        self.packet_loss     = int(defaults.get('packet_loss', self.packet_loss))
-        self.cost_function   = defaults.get('cost_function', self.cost_function)
-        self.latency_scale   = int(defaults.get('latency_scale', self.jitter))
-        self.client_latency  = int(defaults.get('client_latency', self.client_latency))
-        self.client_bandwidth= int(defaults.get('client_bandwidth', self.client_bandwidth))
-        self.client_jitter   = int(defaults.get('client_jitter', self.client_jitter))
-        self.client_loss     = int(defaults.get('client_loss', self.client_loss))
+        self.bandwidth = int(defaults.get("bandwidth", self.bandwidth))
+        self.decay_bandwidth = bool(
+            defaults.get("decay_bandwidth", self.decay_bandwidth)
+        )
+        self.max_latency = int(defaults.get("max_latency", self.max_latency))
+        self.min_bandwidth = int(defaults.get("min_bandwidth", self.min_bandwidth))
+        self.jitter = int(defaults.get("jitter", self.jitter))
+        self.packet_loss = int(defaults.get("packet_loss", self.packet_loss))
+        self.cost_function = defaults.get("cost_function", self.cost_function)
+        self.latency_scale = int(defaults.get("latency_scale", self.jitter))
+        self.client_latency = int(defaults.get("client_latency", self.client_latency))
+        self.client_bandwidth = int(
+            defaults.get("client_bandwidth", self.client_bandwidth)
+        )
+        self.client_jitter = int(defaults.get("client_jitter", self.client_jitter))
+        self.client_loss = int(defaults.get("client_loss", self.client_loss))
 
     @contextmanager
     def will_rewire(self):
@@ -533,12 +531,12 @@ mesh = Mesh("")
 
 @app.route("/")
 def send_index():
-    return send_from_directory('', 'index.html')
+    return send_from_directory("", "index.html")
 
 
 @app.route("/static/<path:filename>")
 def send_static(filename):
-    return send_from_directory('static/', filename)
+    return send_from_directory("static/", filename)
 
 
 @app.route("/server", methods=["POST"])
@@ -556,9 +554,7 @@ async def on_add_server():
     y = incoming_json.get("y")
 
     server = await mesh.add_server(Server(x, y))
-    return jsonify({
-        "id": server.id
-    })
+    return jsonify({"id": server.id})
 
 
 @app.route("/server/<server_id>/position", methods=["PUT"])
@@ -579,10 +575,12 @@ async def on_position_server(server_id):
     server = mesh.get_server(server_id)
     await mesh.move_server(server, x, y)
 
-    return ''
+    return ""
+
 
 def name_to_id(name):
     return int(name.replace("synapse", ""))
+
 
 @app.route("/log", methods=["GET"])
 async def on_incoming_log():
@@ -593,28 +591,32 @@ async def on_incoming_log():
         event_id = args["event_id"]
         origin = args["origin"]
         app.logger.info(f"Received {event_id}. {origin} -> {server}")
-        await event_notif_queue.put({
-            "event_type": "receive",
-            "source": origin,
-            "target": server,
-            "event": event_id,
-        })
+        await event_notif_queue.put(
+            {
+                "event_type": "receive",
+                "source": origin,
+                "target": server,
+                "event": event_id,
+            }
+        )
     elif msg == "SendingPDU":
         event_id = args["event_id"]
         destinations = json.loads(args["destinations"])
         for destination in destinations:
             app.logger.info(f"{server} Sending {event_id}. {server} -> {destination}")
-            await event_notif_queue.put({
-                "event_type": "sending",
-                "source": server,
-                "target": destination,
-                "path": mesh.get_path(name_to_id(server), name_to_id(destination)),
-                "event": event_id,
-            })
-    return ''
+            await event_notif_queue.put(
+                {
+                    "event_type": "sending",
+                    "source": server,
+                    "target": destination,
+                    "path": mesh.get_path(name_to_id(server), name_to_id(destination)),
+                    "event": event_id,
+                }
+            )
+    return ""
 
 
-@app.websocket('/event_notifs')
+@app.websocket("/event_notifs")
 async def event_notifs():
     while True:
         msg = await event_notif_queue.get()
@@ -625,27 +627,32 @@ async def event_notifs():
 def on_get_data():
     return mesh.get_d3_data()
 
+
 @app.route("/costs", methods=["GET"])
 def on_get_costs():
     return jsonify(mesh.get_costs())
 
+
 @app.route("/defaults", methods=["GET"])
 def on_get_defaults():
     return jsonify(mesh.get_defaults())
+
 
 @app.route("/defaults", methods=["PUT"])
 async def on_put_defaults():
     json = await request.get_json()
     mesh.set_defaults(json)
     await mesh.safe_rewire()
-    return ''
+    return ""
+
 
 @app.route("/link/<server1>/<server2>/<type>", methods=["PUT"])
 async def on_put_link_health(server1, server2, type):
     json = await request.get_json()
     mesh.set_link_health(int(server1), int(server2), json)
     await mesh.safe_rewire()
-    return ''
+    return ""
+
 
 @app.route("/link/<server1>/<server2>/<type>", methods=["DELETE"])
 async def on_delete_link_health(server1, server2, type):
@@ -653,10 +660,12 @@ async def on_delete_link_health(server1, server2, type):
     json[type] = None
     mesh.set_link_health(int(server1), int(server2), json)
     await mesh.safe_rewire()
-    return ''
+    return ""
+
 
 def cleanup():
     subprocess.call(["./stop_clean_all.sh"])
+
 
 @app.before_first_request
 def setup():
@@ -666,25 +675,27 @@ def setup():
 def main():
     global args
 
-    parser = argparse.ArgumentParser(description='Synapse network simulator.')
+    parser = argparse.ArgumentParser(description="Synapse network simulator.")
     parser.add_argument(
-        'host',
-        help='The IP address of this host in the docker network.',
+        "host", help="The IP address of this host in the docker network."
     )
     parser.add_argument(
-        "--port", "-p",
+        "--port",
+        "-p",
         help="The port for meshsim to listen on",
         nargs=1,
         default=3000,
         type=int,
     )
     parser.add_argument(
-        "--jaeger", "-j",
+        "--jaeger",
+        "-j",
         help="Enable Jaeger tracing in Synapse and CoAP proxy",
-        action='store_true',
+        action="store_true",
     )
     parser.add_argument(
-        "--no-proxy", "-n",
+        "--no-proxy",
+        "-n",
         help="Have Synapse talk directly to each other rather than via the CoAP proxy",
         action="store_false",
         dest="use_proxy",

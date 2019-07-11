@@ -112,14 +112,13 @@ synapse$ git checkout babolivier/low-bandwidth
 matrix-low-bandwidth$ git clone https://github.com/matrix-org/meshsim-docker.git
 ```
 
+   * Clone the `coap-proxy` repo (inside the `matrix-low-bandwidth` directory)
+```
+matrix-low-bandwidth$ git clone https://github.com/matrix-org/coap-proxy.git
+```
+
    * Run `docker build -t synapse -f meshsim-docker/Dockerfile .` from the top of the
      `matrix-low-bandwidth` directory (***not*** inside the `synapse` repo)
-
- * Install dependencies for meshsim (requires py3)
-```
-matrix-low-bandwidth$ cd meshsim
-matrix-low-bandwidth$ pip3 install networkx quart aiohttp flask tenacity
-```
 
  * Optionally edit `start_hs.sh` to add bind mount to a local working copy of
    synapse. This allows doing synapse dev without having to rebuild images. See
@@ -148,9 +147,7 @@ docker run -d --name synapse$HSID \
 	synapse
 ```
 
- * check you can start a synapse via `./start_hs.sh 1`, with the environment
-   variable `POSTGRES_HOST` set to the docker network gateway IP (on MacOS
-   `host.docker.internal` can be used)
+ * check you can start a synapse via `./start_hs.sh 1 $DOCKER_IP` with DOCEKR_IP being the docker network gateway IP.
     * If the template import fails with something about `en_GB`, make sure you have that locale generated. Replacing `en_GB` with `en_US` or whatever your locale is in `synapse_template.sql` is also sufficient.
  * check if it's running with `docker stats`
  * check the supervisor logs with `docker logs -f synapse1` and that it can talk to your postgres ok
@@ -178,13 +175,6 @@ You can log into the individual synapse containers as `docker exec -it synapse$N
 and generally see what see what's going on.
 
 #### Using the CoAP proxy
-
-* Check out the proxy in the `matrix-low-bandwidth` directory
-
-```
-matrix-low-bandwidth$ git clone https://github.com/matrix-org/coap-proxy.git
-matrix-low-bandwidth$ cd coap-proxy
-```
 
 * Build the proxy (see instruction in the [proxy's README](https://github.com/matrix-org/coap-proxy/blob/master/README.md))
 * Run it by telling it to talk to the HS's proxy:

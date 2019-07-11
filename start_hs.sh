@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 # Copyright 2019 New Vector Ltd
 #
@@ -17,8 +17,17 @@
 # You should have received a copy of the GNU General Public License
 # along with coap-proxy.  If not, see <https://www.gnu.org/licenses/>.
 
+if [ "$#" -ne 2 ]
+then
+  echo 'Usage: ./start_hs.sh <HS_ID> <DOCKER_HOST_IP>'
+  exit 1
+fi
+
+set -x
+
 HSID=$1
 HOST_IP=$2
+
 
 # for db in account device mediaapi syncapi roomserver serverkey federationsender publicroomsapi appservice naffka; do
 #     createdb -O dendrite dendrite${HSID}_$db
@@ -87,11 +96,10 @@ docker run -d --name synapse$HSID \
 	-p $((18000 + HSID)):8008 \
 	-p $((19000 + HSID)):3000 \
 	-p $((20000 + HSID)):5683/udp \
-    -e POSTGRES_HOST=$HOST_IP \
-    -e SYNAPSE_LOG_HOST=$HOST_IP \
-    -e SYNAPSE_USE_PROXY=1 \
-    -e PROXY_DUMP_PAYLOADS=1 \
-	--mount type=bind,source=/home/brendan/Documents/matrix/low-bandwidth/synapse/synapse,destination=/usr/local/lib/python3.7/site-packages/synapse \
+	-e POSTGRES_HOST=$HOST_IP \
+	-e SYNAPSE_LOG_HOST=$HOST_IP \
+	-e SYNAPSE_USE_PROXY=1 \
+	-e PROXY_DUMP_PAYLOADS=1 \
 	synapse
 
 # or replace the last line for a dummy docker...
