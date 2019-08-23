@@ -45,12 +45,19 @@ HOST_IP=$2
 
 # docker run -d --name dendrite$HSID -e HSID monolith
 
+docker cp ./synapse_template.sql pg-mesh:/synapse_template.sql
+
+cat <<HERE | docker exec -i pg-mesh /bin/bash -x
+
+stat /synapse_template.sql
+export PGUSER=postgres
+
 if ! dropdb --if-exists synapse${HSID} ; then
 	echo "Failed to drop database, bailing"
 	exit 1
 fi
 
-psql --variable="ON_ERROR_STOP=" -f synapse_template.sql > /dev/null 2>&1
+psql --variable="ON_ERROR_STOP=" -f /synapse_template.sql #> /dev/null 2>&1
 createdb -O synapse synapse${HSID} -T synapse_template
 
 # shouldn't we put this in the template?
@@ -59,6 +66,8 @@ insert into users(name, password_hash) values ('@matthew:synapse$HSID', '\$2b\$1
 insert into access_tokens(id, user_id, token) values (123123, '@matthew:synapse$HSID', 'fake_token');
 insert into profiles(user_id) values ('matthew');
 EOT
+
+HERE
 
 # insert into users(name, password_hash) values ('@amandine:synapse$HSID', '\$2b\$12\$oOZr9g6bPScmPrpJHv/uuu2piCg7kN8ia/BAlfW6wske/1kLf8kze');
 # insert into access_tokens(id, user_id, token) values (123123, '@amandine:synapse$HSID', 'fake_token');
@@ -83,6 +92,8 @@ EOT
 # ...or whatever our bridge is, as PMTU doesn't seem to be working
 # and otherwise we'll get locked out of the guest.
 
+PG_IP=$(docker inspect pg-mesh --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+
 docker run -d --name synapse$HSID \
 	--privileged \
 	--network mesh \
@@ -96,7 +107,7 @@ docker run -d --name synapse$HSID \
 	-p $((18000 + HSID)):8008 \
 	-p $((19000 + HSID)):3000 \
 	-p $((20000 + HSID)):5683/udp \
-	-e POSTGRES_HOST=$HOST_IP \
+	-e POSTGRES_HOST=$PG_IP \
 	-e SYNAPSE_LOG_HOST=$HOST_IP \
 	-e SYNAPSE_USE_PROXY=1 \
 	-e PROXY_DUMP_PAYLOADS=1 \
