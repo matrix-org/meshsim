@@ -48,7 +48,7 @@ POSTGRES_IP=$(docker inspect $POSTGRES_CONTAINER_NAME --format '{{range .Network
 
 # docker run -d --name dendrite$HSID -e HSID monolith
 
-docker cp ./synapse_template.sql pg-mesh:/synapse_template.sql
+docker cp ./scripts/synapse_template.sql pg-mesh:/synapse_template.sql
 
 cat <<HERE | docker exec -i pg-mesh /bin/bash -x
 
