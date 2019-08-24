@@ -18,14 +18,15 @@
 import asyncio
 import atexit
 import json
-import subprocess
+
+from quart import Quart, abort, jsonify, request, send_from_directory, websocket, current_app
 from logging.config import dictConfig
 from math import sqrt
-
-from quart import Quart, abort, jsonify, request, send_from_directory, websocket
+from secrets import token_urlsafe
 
 from .mesh import Mesh
 from .server import Server
+from .ext.synapse import SynapseProvider
 
 
 dictConfig({"version": 1, "loggers": {
@@ -42,9 +43,6 @@ event_notif_queue = None
 def setup_event_queue():
     global event_notif_queue
     event_notif_queue = asyncio.Queue()
-
-
-mesh = Mesh("")
 
 
 @app.route("/")
@@ -66,7 +64,7 @@ async def on_add_server():
     x = incoming_json.get("x")
     y = incoming_json.get("y")
 
-    server = await mesh.add_server(Server(x, y))
+    server = await current_app.mesh.add_server(Server(x, y, app.node_provider))
     return jsonify({"id": server.id})
 
 
@@ -85,8 +83,8 @@ async def on_position_server(server_id):
     x = incoming_json.get("x")
     y = incoming_json.get("y")
 
-    server = mesh.get_server(server_id)
-    await mesh.move_server(server, x, y)
+    server = current_app.mesh.get_server(server_id)
+    await current_app.mesh.move_server(server, x, y)
 
     return ""
 
@@ -123,7 +121,7 @@ async def on_incoming_log():
                     "event_type": "sending",
                     "source": server,
                     "target": destination,
-                    "path": mesh.get_path(name_to_id(server), name_to_id(destination)),
+                    "path": current_app.mesh.get_path(name_to_id(server), name_to_id(destination)),
                     "event": event_id,
                 }
             )
@@ -139,32 +137,55 @@ async def event_notifs():
 
 @app.route("/data", methods=["GET"])
 def on_get_data():
-    return mesh.get_d3_data()
+    return current_app.mesh.get_d3_data()
 
 
 @app.route("/costs", methods=["GET"])
 def on_get_costs():
-    return jsonify(mesh.get_costs())
+    return jsonify(current_app.mesh.get_costs())
 
 
 @app.route("/defaults", methods=["GET"])
 def on_get_defaults():
-    return jsonify(mesh.get_defaults())
+    return jsonify(current_app.mesh.get_defaults())
 
 
 @app.route("/defaults", methods=["PUT"])
 async def on_put_defaults():
     json = await request.get_json()
-    mesh.set_defaults(json)
-    await mesh.safe_rewire()
+    current_app.mesh.set_defaults(json)
+    await current_app.mesh.safe_rewire()
+    return ""
+
+
+@app.route("/messages", methods=["POST"])
+async def on_send_messages():
+    body = await request.get_json()
+    node_ids = body.get('node_ids', [])
+    message_size = int(body.get('message_size', 64))
+    message = token_urlsafe(message_size)
+    if not node_ids:
+        return abort(422, description="No node ids provided")
+
+    for node_id in node_ids:
+        server = current_app.mesh.get_server(int(node_id))
+        if not server:
+            return abort(422, description="Invalid node id provided")
+        await server.send_message(message)
+    return ""
+
+
+@app.route("/messages/bootstrap", methods=["POST"])
+async def on_messages_bootstrap():
+    await current_app.mesh.bootstrap()
     return ""
 
 
 @app.route("/link/<server1>/<server2>/<type>", methods=["PUT"])
 async def on_put_link_health(server1, server2, type):
     json = await request.get_json()
-    mesh.set_link_health(int(server1), int(server2), json)
-    await mesh.safe_rewire()
+    current_app.mesh.set_link_health(int(server1), int(server2), json)
+    await current_app.mesh.safe_rewire()
     return ""
 
 
@@ -172,8 +193,8 @@ async def on_put_link_health(server1, server2, type):
 async def on_delete_link_health(server1, server2, type):
     json = {}
     json[type] = None
-    mesh.set_link_health(int(server1), int(server2), json)
-    await mesh.safe_rewire()
+    current_app.mesh.set_link_health(int(server1), int(server2), json)
+    await current_app.mesh.safe_rewire()
     return ""
 
 
@@ -183,4 +204,4 @@ def setup_cleanup():
 
 
 def cleanup():
-    subprocess.call(["./scripts/stop_clean_all.sh"])
+    app.node_provider.stop_clean_all()

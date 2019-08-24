@@ -19,10 +19,9 @@
 
 import os
 import argparse
-import subprocess
 
 from meshsim import app
-from meshsim.config import set_config
+from meshsim.mesh import Mesh
 
 
 def main():
@@ -42,15 +41,23 @@ def main():
     parser.add_argument(
         "--jaeger",
         "-j",
-        help="Enable Jaeger tracing in Synapse and CoAP proxy",
+        help="Enable Jaeger tracing in Node and CoAP proxy",
         action="store_true",
     )
     parser.add_argument(
         "--no-proxy",
         "-n",
-        help="Have Synapse talk directly to each other rather than via the CoAP proxy",
+        help="Have nodes talk directly to each other rather than via the CoAP proxy",
         action="store_false",
         dest="use_proxy",
+    )
+    parser.add_argument(
+        "--node-provider",
+        "-P",
+        help="The node provider",
+        choices=["synapse", "libp2p"],
+        action="store",
+        dest="provider",
     )
     parser.add_argument(
         "--proxy-dump-payloads",
@@ -58,7 +65,7 @@ def main():
         action="store_true",
     )
     args = parser.parse_args()
-    set_config(args)
+    app.config['ARGS'] = args
 
     host = args.host
     os.environ["POSTGRES_HOST"] = host
@@ -73,7 +80,23 @@ def main():
     if args.proxy_dump_payloads:
         os.environ["PROXY_DUMP_PAYLOADS"] = "1"
 
-    subprocess.call(["./scripts/init_client_health_host.sh"])
+    provider = None
+    if args.provider == "synapse":
+        from meshsim.ext.synapse import SynapseProvider
+        provider = SynapseProvider()
+    elif args.provider == "libp2p":
+        from meshsim.ext.libp2p import Libp2pProvider
+        provider = Libp2pProvider()
+    else:
+        raise ValueError(
+            "Provider not defined or missing ({})".format(args.provider))
+
+    # Not ideal but better than pure globals
+    app.node_provider = provider
+    app.mesh = Mesh(provider)
+
+    provider.init_client_health_host()
+
     app.run(host="0.0.0.0", port=args.port, debug=True)
 
 

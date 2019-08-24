@@ -29,7 +29,8 @@ class Mesh:
     COST_MIN_LATENCY = "cost_min_latency"
     COST_MAX_BANDWIDTH = "cost_max_bandwidth"
 
-    def __init__(self, host_ip):
+    def __init__(self, provider):
+        self.provider = provider
         self.graph = nx.Graph()
         self.servers = {}
 
@@ -57,6 +58,9 @@ class Mesh:
         # Number of things that are about to call rewire. Don't bother rewiring
         # unless this is zero.
         self._about_to_rewire_functions = 0
+
+    async def bootstrap(self):
+        await self.provider.bootstrap()
 
     async def add_server(self, server):
         # we deliberately add the server asap so we can echo its existence
@@ -160,6 +164,18 @@ class Mesh:
 
         c = list(combinations(started_servers, 2))
         current_app.logger.info("combinations %r", c)
+        clients = [
+            {
+                "source_port": 0,  # FIXME once we support multiple clients
+                "bandwidth": self.client_bandwidth,
+                "latency": self.client_latency,
+                "jitter": self.client_jitter,
+                "loss": self.client_loss,
+            }
+        ]
+
+        # Set client host health globally
+        await self.provider.set_client_host_health(clients)
 
         futures = (
             # apply the network topology in terms of routing table
@@ -206,15 +222,7 @@ class Mesh:
                             }
                             for neighbour in self.get_server(i).neighbours
                         ],
-                        "clients": [
-                            {
-                                "source_port": 0,  # FIXME once we support multiple clients
-                                "bandwidth": self.client_bandwidth,
-                                "latency": self.client_latency,
-                                "jitter": self.client_jitter,
-                                "loss": self.client_loss,
-                            }
-                        ],
+                        "clients": clients
                     }
                 )
                 for i in started_servers

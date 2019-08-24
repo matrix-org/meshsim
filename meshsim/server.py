@@ -23,15 +23,14 @@ from quart import current_app
 from math import sqrt
 from tenacity import retry, wait_fixed
 
-from .requests import put
-
 
 class Server(object):
     _id = 0
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, provider):
         self.x = x
         self.y = y
+        self.provider = provider
         self.id = Server._id
         self.ip = None
         self.mac = None
@@ -46,27 +45,12 @@ class Server(object):
         return {"id": self.id, "ip": self.ip, "mac": self.mac}
 
     async def start(self):
-        from .config import config
-        proc = await asyncio.create_subprocess_exec(
-            "./scripts/start_hs.sh", str(self.id), config.host
-        )
-        code = await proc.wait()
-        if code != 0:
-            raise Exception("Failed to start HS")
+        await self.provider.start_node(self.id, current_app.config['ARGS'].host)
         await self.update_network_info()
 
     async def update_network_info(self):
-        proc = await asyncio.create_subprocess_exec(
-            "./scripts/get_hs_ip.sh", str(self.id), stdout=asyncio.subprocess.PIPE
-        )
-        stdout, _ = await proc.communicate()
-        self.ip = stdout.decode().strip()
-
-        proc = await asyncio.create_subprocess_exec(
-            "./scripts/get_hs_mac.sh", str(self.id), stdout=asyncio.subprocess.PIPE
-        )
-        stdout, _ = await proc.communicate()
-        self.mac = stdout.decode().strip()
+        self.ip = await self.provider.get_node_ip(self.id)
+        self.mac = await self.provider.get_node_mac(self.id)
 
     @retry(wait=wait_fixed(1))
     async def set_routes(self, routes):
@@ -76,11 +60,9 @@ class Server(object):
         #       via: server
         #   }, ...
         # ]
-        data = json.dumps(routes, indent=4)
         current_app.logger.info(
-            "setting routes for %d: %s", self.id, data)
-
-        r = await put("http://localhost:%d/routes" % (19000 + self.id), data)
+            "setting routes for %d: %s", self.id, json.dumps(routes, indent=4))
+        r = await self.provider.set_node_routes(self.id, routes)
 
         current_app.logger.info(
             "Set route with result for %d: %s", self.id, r)
@@ -107,32 +89,14 @@ class Server(object):
         #         }, ...
         #     ]
         # }
-        data = json.dumps(health, indent=4)
         current_app.logger.info(
-            "setting health for %d: %s", self.id, data)
+            "setting health for %d: %s", self.id, json.dumps(health, indent=4))
 
-        # only apply client health on the host side once (picking server 0 arbitrarily)
-        if self.id == 0:
-            for client in health.get("clients", []):
-                proc = await asyncio.create_subprocess_exec(
-                    "./scripts/set_client_health_host.sh",
-                    str(client["source_port"]),
-                    str(client["bandwidth"]),
-                    str(client["latency"]),
-                    str(client["jitter"]),
-                    stdout=asyncio.subprocess.PIPE,
-                )
-                stdout, _ = await proc.communicate()
-                current_app.logger.info(
-                    "with host result for %d: %s", self.id, stdout.decode().strip()
-                )
-
-        r = await put("http://localhost:%d/health" % (19000 + self.id), data)
-
+        r = self.provider.set_node_health(self.id, health)
         current_app.logger.info("with result for %d: %s", self.id, r)
 
     def stop(self):
-        subprocess.call(["./scripts/stop_hs.sh", str(self.id)])
+        self.provider.stop_node(self.id)
 
     def distance(self, server2):
         return sqrt((server2.x - self.x) ** 2 + (server2.y - self.y) ** 2)
@@ -146,6 +110,9 @@ class Server(object):
         self.neighbours.add(server2)
         server2.neighbours.add(self)
         return True
+
+    async def send_message(self, message):
+        await self.provider.send_message_from_node(self.id, message)
 
     def reset_neighbours(self):
         # app.logger.info("resetting neighbours for %d", self.id)

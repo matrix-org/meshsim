@@ -28,14 +28,14 @@ body {
     flex: 1;
 }
 
-#sidebar {
+.sidebar {
     background-color: #eee;
     flex: 0 200px;
     padding: 1em;
     border-left: 1px solid #ddd;
 }
 
-#sidebar input[type='text'] {
+.sidebar input[type='text'] {
     display: block;
     padding: .5em;
 }
@@ -45,12 +45,12 @@ body {
     margin-bottom: 1em;
 }
 
-#sidebar button {
+.sidebar button {
     width: 100%;
     padding: .5em;
 }
 
-#sidebar button.pin {
+.sidebar button.pin {
     width: 5em;
 }
 
@@ -61,5 +61,3 @@ body {
 #local input[type='text'] {
     display: inline ! important;
 }
-
-
