@@ -48,7 +48,7 @@ class Server(object):
     async def start(self):
         from .config import config
         proc = await asyncio.create_subprocess_exec(
-            "./start_hs.sh", str(self.id), config.host
+            "./scripts/start_hs.sh", str(self.id), config.host
         )
         code = await proc.wait()
         if code != 0:
@@ -57,13 +57,13 @@ class Server(object):
 
     async def update_network_info(self):
         proc = await asyncio.create_subprocess_exec(
-            "./get_hs_ip.sh", str(self.id), stdout=asyncio.subprocess.PIPE
+            "./scripts/get_hs_ip.sh", str(self.id), stdout=asyncio.subprocess.PIPE
         )
         stdout, _ = await proc.communicate()
         self.ip = stdout.decode().strip()
 
         proc = await asyncio.create_subprocess_exec(
-            "./get_hs_mac.sh", str(self.id), stdout=asyncio.subprocess.PIPE
+            "./scripts/get_hs_mac.sh", str(self.id), stdout=asyncio.subprocess.PIPE
         )
         stdout, _ = await proc.communicate()
         self.mac = stdout.decode().strip()
@@ -115,7 +115,7 @@ class Server(object):
         if self.id == 0:
             for client in health.get("clients", []):
                 proc = await asyncio.create_subprocess_exec(
-                    "./set_client_health_host.sh",
+                    "./scripts/set_client_health_host.sh",
                     str(client["source_port"]),
                     str(client["bandwidth"]),
                     str(client["latency"]),
@@ -132,7 +132,7 @@ class Server(object):
         current_app.logger.info("with result for %d: %s", self.id, r)
 
     def stop(self):
-        subprocess.call(["./stop_hs.sh", str(self.id)])
+        subprocess.call(["./scripts/stop_hs.sh", str(self.id)])
 
     def distance(self, server2):
         return sqrt((server2.x - self.x) ** 2 + (server2.y - self.y) ** 2)

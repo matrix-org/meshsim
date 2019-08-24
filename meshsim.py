@@ -73,7 +73,7 @@ def main():
     if args.proxy_dump_payloads:
         os.environ["PROXY_DUMP_PAYLOADS"] = "1"
 
-    subprocess.call(["./init_client_health_host.sh"])
+    subprocess.call(["./scripts/init_client_health_host.sh"])
     app.run(host="0.0.0.0", port=args.port, debug=True)
 
 

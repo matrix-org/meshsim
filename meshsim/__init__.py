@@ -183,4 +183,4 @@ def setup_cleanup():
 
 
 def cleanup():
-    subprocess.call(["./stop_clean_all.sh"])
+    subprocess.call(["./scripts/stop_clean_all.sh"])
