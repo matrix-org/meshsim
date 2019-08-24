@@ -1,0 +1,3 @@
+protobuf==3.9.1
+python-bitcoinlib==0.10.2
+multiaddr==0.0.8
