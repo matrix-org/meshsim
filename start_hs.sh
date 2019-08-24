@@ -28,6 +28,9 @@ set -x
 HSID=$1
 HOST_IP=$2
 
+# Postgres runs in the same network, using this preset name
+POSTGRES_CONTAINER_NAME=pg-mesh
+POSTGRES_IP=$(docker inspect $POSTGRES_CONTAINER_NAME --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
 
 # for db in account device mediaapi syncapi roomserver serverkey federationsender publicroomsapi appservice naffka; do
 #     createdb -O dendrite dendrite${HSID}_$db
@@ -92,8 +95,6 @@ HERE
 # ...or whatever our bridge is, as PMTU doesn't seem to be working
 # and otherwise we'll get locked out of the guest.
 
-PG_IP=$(docker inspect pg-mesh --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
-
 docker run -d --name synapse$HSID \
 	--privileged \
 	--network mesh \
@@ -107,7 +108,7 @@ docker run -d --name synapse$HSID \
 	-p $((18000 + HSID)):8008 \
 	-p $((19000 + HSID)):3000 \
 	-p $((20000 + HSID)):5683/udp \
-	-e POSTGRES_HOST=$PG_IP \
+	-e POSTGRES_HOST=$POSTGRES_IP \
 	-e SYNAPSE_LOG_HOST=$HOST_IP \
 	-e SYNAPSE_USE_PROXY=1 \
 	-e PROXY_DUMP_PAYLOADS=1 \
