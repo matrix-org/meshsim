@@ -38,7 +38,7 @@ args = None
 
 dictConfig({"version": 1, "loggers": {"quart.app": {"level": "INFO"}}})
 
-app = Quart(__name__)
+app = Quart(__name__, static_folder="./frontend/static")
 
 
 # We need to create this *after* start up so that it binds to correct event loop
@@ -531,13 +531,7 @@ mesh = Mesh("")
 
 @app.route("/")
 def send_index():
-    return send_from_directory("", "index.html")
-
-
-@app.route("/static/<path:filename>")
-def send_static(filename):
-    return send_from_directory("static/", filename)
-
+    return send_from_directory("./frontend/", "index.html")
 
 @app.route("/server", methods=["POST"])
 async def on_add_server():

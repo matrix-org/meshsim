@@ -1,0 +1,110 @@
+<html>
+
+<!--
+Copyright 2019 New Vector Ltd
+
+This file is part of meshsim.
+
+meshsim is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+meshsim is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with coap-proxy.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<head>
+  <link rel="stylesheet" href="static/css/main.css">
+</head>
+
+<body>
+    <section id="content">
+        <svg id="viz"></svg>
+        <aside id="sidebar">
+            <h3>Global</h3>
+            <div class="control">
+                <label for="bandwidth">Default bandwidth (bps)</label>
+                <input id="bandwidth" type="text">
+            </div>
+            <div class="control">
+                <label for="decay_bandwidth">Decay bandwidth</label>
+                <input id="decay_bandwidth" type="checkbox">
+            </div>
+            <div class="control">
+                <label for="max_latency">Max latency (ms)</label>
+                <input id="max_latency" type="text">
+            </div>
+            <div class="control">
+                <label for="min_bandwidth">Min bandwidth (bps)</label>
+                <input id="min_bandwidth" type="text">
+            </div>
+            <div class="control">
+                <label for="jitter">Default jitter (%)</label>
+                <input id="jitter" type="text">
+            </div>
+            <div class="control">
+                <label for="cost_min_latency">Minimse latency</label>
+                <input id="cost_min_latency" type="radio" name="cost_function" value="cost_min_latency">
+            </div>
+            <div class="control">
+                <label for="cost_max_bandwidth">Maximise bandwidth</label>
+                <input id="cost_max_bandwidth" type="radio" name="cost_function" value="cost_max_bandwidth">
+            </div>
+            <div class="control">
+                <label for="latency_scale">Scale latency (%)</label>
+                <input id="latency_scale" type="text">
+            </div>
+
+            <hr/>
+
+            <div class="control">
+                <label for="client_latency">Client Latency (ms)</label>
+                <input id="client_latency" type="text">
+            </div>
+            <div class="control">
+                <label for="client_bandwidth">Client Bandwidth (bps)</label>
+                <input id="client_bandwidth" type="text">
+            </div>
+            <div class="control">
+                <label for="client_jitter">Client Jitter (%)</label>
+                <input id="client_jitter" type="text">
+            </div>
+
+            <button onClick="applyDefaults()">Apply</button>
+
+            <div id="local" style="display: none">
+
+                <h3>Link</h3>
+
+                <div class="control">
+                    <label for="link_latency">Latency (ms)</label>
+                    <input id="link_latency" type="text">
+                    <button class="pin" id="pin_latency" onClick="pinOverride('latency')">Pin</button>
+                    <button style="display: none" class="pin"  id="unpin_latency" onClick="unpinOverride('latency')">Unpin</button>
+                </div>
+                <div class="control">
+                    <label for="link_bandwidth">Bandwidth (bps)</label>
+                    <input id="link_bandwidth" type="text">
+                    <button class="pin" id="pin_bandwidth" onClick="pinOverride('bandwidth')">Pin</button>
+                    <button style="display: none" class="pin" id="unpin_bandwidth" onClick="unpinOverride('bandwidth')">Unpin</button>
+                </div>
+                <div class="control">
+                    <label for="link_jitter">Jitter (%)</label>
+                    <input id="link_jitter" type="text">
+                    <button class="pin" id="pin_jitter" onClick="pinOverride('jitter')">Pin</button>
+                    <button style="display: none" class="pin" id="unpin_jitter" onClick="unpinOverride('jitter')">Unpin</button>
+                </div>
+
+            </div>
+        </aside>
+    </section>
+    <script type="text/javascript" src="static/js/d3.v5.min.js"></script>
+    <script type="text/javascript" src="static/js/main.js"></script>
+</body>
+</html>
