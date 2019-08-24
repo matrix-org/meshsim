@@ -12,15 +12,16 @@ class BaseProvider():
         self.nodes = []
 
     def init_client_health_host(self):
-        subprocess.call(["./scripts/init_client_health_host.sh"])
+        subprocess.call(
+            ["./meshsim/scripts/init_client_health_host.sh"])
 
     def stop_clean_all(self):
-        subprocess.call(["./scripts/stop_clean_all.sh"])
+        subprocess.call(["./meshsim/scripts/stop_clean_all.sh"])
 
     async def set_client_host_health(self, clients=[]):
         for client in clients:
             proc = await asyncio.create_subprocess_exec(
-                "./scripts/set_client_health_host.sh",
+                "./meshsim/scripts/set_client_health_host.sh",
                 str(client["source_port"]),
                 str(client["bandwidth"]),
                 str(client["latency"]),
@@ -37,7 +38,7 @@ class BaseProvider():
 
     async def stop_node(self, id):
         proc = await asyncio.create_subprocess_exec(
-            "./scripts/stop_node.sh", str(id)
+            "./meshsim/scripts/stop_node.sh", str(id)
         )
         code = await proc.wait()
         if code != 0:
@@ -46,14 +47,14 @@ class BaseProvider():
 
     async def get_node_ip(self, id):
         proc = await asyncio.create_subprocess_exec(
-            "./scripts/get_node_ip.sh", str(id), stdout=asyncio.subprocess.PIPE
+            "./meshsim/scripts/get_node_ip.sh", str(id), stdout=asyncio.subprocess.PIPE
         )
         stdout, _ = await proc.communicate()
         return stdout.decode().strip()
 
     async def get_node_mac(self, id):
         proc = await asyncio.create_subprocess_exec(
-            "./scripts/get_node_mac.sh", str(id), stdout=asyncio.subprocess.PIPE
+            "./meshsim/scripts/get_node_mac.sh", str(id), stdout=asyncio.subprocess.PIPE
         )
         stdout, _ = await proc.communicate()
         return stdout.decode().strip()

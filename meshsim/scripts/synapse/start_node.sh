@@ -19,7 +19,7 @@
 
 if [ "$#" -ne 2 ]
 then
-  echo 'Usage: ./start_hs.sh <HS_ID> <DOCKER_HOST_IP>'
+  echo 'Usage: ./start_node.sh <HS_ID> <DOCKER_HOST_IP>'
   exit 1
 fi
 
@@ -48,7 +48,7 @@ POSTGRES_IP=$(docker inspect $POSTGRES_CONTAINER_NAME --format '{{range .Network
 
 # docker run -d --name dendrite$HSID -e HSID monolith
 
-docker cp ./scripts/synapse/synapse_template.sql pg-mesh:/synapse_template.sql
+docker cp ./meshsim/scripts/synapse/synapse_template.sql pg-mesh:/synapse_template.sql
 
 cat <<HERE | docker exec -i pg-mesh /bin/bash -x
 
@@ -105,6 +105,7 @@ docker run -d --name meshsim-node$HSID \
 	-e SYNAPSE_LOG_LEVEL=INFO \
 	-e POSTGRES_DB=synapse$HSID \
 	-e POSTGRES_PASSWORD=synapseftw \
+	-e TOPOLOGISER_MODE=synapse \
 	-p $((18000 + HSID)):8008 \
 	-p $((19000 + HSID)):3000 \
 	-p $((20000 + HSID)):5683/udp \

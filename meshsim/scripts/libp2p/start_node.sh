@@ -19,7 +19,7 @@
 
 if [ "$#" -ne 2 ]
 then
-  echo 'Usage: ./start_hs.sh <HS_ID> <DOCKER_HOST_IP>'
+  echo 'Usage: ./start_node.sh <HS_ID> <DOCKER_HOST_IP>'
   exit 1
 fi
 set -x
@@ -49,4 +49,5 @@ docker run -d --name meshsim-node$HSID \
 	--hostname meshsim-node$HSID \
 	-p $((19000 + HSID)):3000 \
 	-e PROXY_DUMP_PAYLOADS=1 \
+	-e TOPOLOGISER_MODE=libp2p \
 	p2pd-meshsim
