@@ -92,7 +92,7 @@ class Server(object):
         current_app.logger.info(
             "setting health for %d: %s", self.id, json.dumps(health, indent=4))
 
-        r = self.provider.set_node_health(self.id, health)
+        r = await self.provider.set_node_health(self.id, health)
         current_app.logger.info("with result for %d: %s", self.id, r)
 
     def stop(self):

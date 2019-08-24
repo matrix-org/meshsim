@@ -1,6 +1,7 @@
+import asyncio
 import json
 from quart import current_app
-from tenacity import retry, wait_fixed
+from tenacity import retry, wait_fixed, stop_after_attempt
 from urllib.parse import quote
 
 from ...provider import BaseProvider
@@ -12,7 +13,16 @@ class SynapseProvider(BaseProvider):
         self.room = None
         self.nodes_in_room = []
 
-    @retry(wait=wait_fixed(1))
+    async def start_node(self, id, host):
+        proc = await asyncio.create_subprocess_exec(
+            "./scripts/synapse/start_node.sh", str(id), host
+        )
+        code = await proc.wait()
+        if code != 0:
+            raise Exception("Failed to start node")
+        self.nodes.append(id)
+
+    @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
     async def bootstrap(self):
         if self.room == None:
             await self.setup_room()
@@ -22,7 +32,7 @@ class SynapseProvider(BaseProvider):
                 await self.join_room(node_id)
                 self.nodes_in_room.append(node_id)
 
-    @retry(wait=wait_fixed(1))
+    @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
     async def setup_room(self):
         creator_id = self.nodes[0]
         data = {'preset': "public_chat", 'room_alias_name': "test"}
@@ -31,7 +41,7 @@ class SynapseProvider(BaseProvider):
         current_app.logger.info(resp)
         self.room = resp
 
-    @retry(wait=wait_fixed(1))
+    @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
     async def join_room(self, id):
         room = quote(self.room['room_alias'])
         resp_raw = await self.post("http://localhost:%d/_matrix/client/r0/join/%s?access_token=fake_token" % (18000 + id, room))
@@ -41,6 +51,7 @@ class SynapseProvider(BaseProvider):
             current_app.logger.info("Adf")
             raise RuntimeError("Could not join room")
 
+    @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
     async def send_message_from_node(self, id, message):
         data = {'body': message, 'msgtype': 'm.text'}
         current_app.logger.info(data)

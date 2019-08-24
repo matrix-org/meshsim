@@ -26,7 +26,7 @@ from meshsim.mesh import Mesh
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Synapse network simulator.")
+        description="Mesh network simulator.")
     parser.add_argument(
         "host", help="The IP address of this host in the docker network."
     )

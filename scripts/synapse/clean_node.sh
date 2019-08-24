@@ -9,4 +9,4 @@ HSID=$1
 # docker rm dendrite$HSID
 
 dropdb synapse${HSID}
-docker rm synapse$HSID
+docker rm meshsim-node$HSID

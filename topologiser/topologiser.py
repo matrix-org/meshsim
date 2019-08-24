@@ -74,7 +74,7 @@ def set_routes():
     result += run(["./clear_hs_routes.sh"])
     for route in routes:
         server_id = route['dst']['id']
-        hostname = f"synapse{server_id}"
+        hostname = f"meshsim-node{server_id}"
 
         dest_to_costs[hostname] = route["cost"]
 
@@ -88,6 +88,7 @@ def set_routes():
     write_destination_health(dest_to_costs)
 
     return result
+
 
 @app.route("/health", methods=["PUT"])
 def set_network_health():
@@ -125,17 +126,20 @@ def set_network_health():
         result += run(
             ["./set_hs_peer_health.sh", str(i)] +
             mac +
-            [str(peer['bandwidth']), str(peer['latency']), str(peer['jitter'])]
+            [str(peer['bandwidth']), str(
+                peer['latency']), str(peer['jitter'])]
         )
         i = i + 1
 
     for client in json['clients']:
         result += run(
             ["./set_client_health.sh", str(i), str(client.get('source_port', 0))] +
-            [str(client['bandwidth']), str(client['latency']), str(client['jitter'])]
+            [str(client['bandwidth']), str(
+                client['latency']), str(client['jitter'])]
         )
 
     return result
+
 
 def write_destination_health(dest_to_cost):
     conn = psycopg2.connect(
@@ -155,8 +159,10 @@ def write_destination_health(dest_to_cost):
                 )
 
     try:
-        requests.get("http://localhost:8008/_matrix/client/r0/admin/server_health")
+        requests.get(
+            "http://localhost:8008/_matrix/client/r0/admin/server_health")
     except Exception as e:
         pass
+
 
 app.run(host="0.0.0.0", port=3000, debug=True)

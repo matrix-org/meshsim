@@ -90,7 +90,7 @@ async def on_position_server(server_id):
 
 
 def name_to_id(name):
-    return int(name.replace("synapse", ""))
+    return int(name.replace("meshsim-node", ""))
 
 
 @app.route("/log", methods=["GET"])

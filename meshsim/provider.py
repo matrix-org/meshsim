@@ -33,17 +33,11 @@ class BaseProvider():
             )
 
     async def start_node(self, id, host):
-        proc = await asyncio.create_subprocess_exec(
-            "./scripts/start_hs.sh", str(id), host
-        )
-        code = await proc.wait()
-        if code != 0:
-            raise Exception("Failed to start node")
-        self.nodes.append(id)
+        raise NotImplementedError()
 
     async def stop_node(self, id):
         proc = await asyncio.create_subprocess_exec(
-            "./scripts/stop_hs.sh", str(id)
+            "./scripts/stop_node.sh", str(id)
         )
         code = await proc.wait()
         if code != 0:
@@ -52,14 +46,14 @@ class BaseProvider():
 
     async def get_node_ip(self, id):
         proc = await asyncio.create_subprocess_exec(
-            "./scripts/get_hs_ip.sh", str(id), stdout=asyncio.subprocess.PIPE
+            "./scripts/get_node_ip.sh", str(id), stdout=asyncio.subprocess.PIPE
         )
         stdout, _ = await proc.communicate()
         return stdout.decode().strip()
 
     async def get_node_mac(self, id):
         proc = await asyncio.create_subprocess_exec(
-            "./scripts/get_hs_mac.sh", str(id), stdout=asyncio.subprocess.PIPE
+            "./scripts/get_node_mac.sh", str(id), stdout=asyncio.subprocess.PIPE
         )
         stdout, _ = await proc.communicate()
         return stdout.decode().strip()

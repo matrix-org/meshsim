@@ -48,7 +48,7 @@ POSTGRES_IP=$(docker inspect $POSTGRES_CONTAINER_NAME --format '{{range .Network
 
 # docker run -d --name dendrite$HSID -e HSID monolith
 
-docker cp ./scripts/synapse_template.sql pg-mesh:/synapse_template.sql
+docker cp ./scripts/synapse/synapse_template.sql pg-mesh:/synapse_template.sql
 
 cat <<HERE | docker exec -i pg-mesh /bin/bash -x
 
@@ -65,8 +65,8 @@ createdb -O synapse synapse${HSID} -T synapse_template
 
 # shouldn't we put this in the template?
 psql synapse$HSID <<EOT
-insert into users(name, password_hash) values ('@matthew:synapse$HSID', '\$2b\$12\$oOZr9g6bPScmPrpJHv/uuu2piCg7kN8ia/BAlfW6wske/1kLf8kze');
-insert into access_tokens(id, user_id, token) values (123123, '@matthew:synapse$HSID', 'fake_token');
+insert into users(name, password_hash) values ('@matthew:meshsim-node$HSID', '\$2b\$12\$oOZr9g6bPScmPrpJHv/uuu2piCg7kN8ia/BAlfW6wske/1kLf8kze');
+insert into access_tokens(id, user_id, token) values (123123, '@matthew:meshsim-node$HSID', 'fake_token');
 insert into profiles(user_id) values ('matthew');
 EOT
 
@@ -95,11 +95,11 @@ HERE
 # ...or whatever our bridge is, as PMTU doesn't seem to be working
 # and otherwise we'll get locked out of the guest.
 
-docker run -d --name synapse$HSID \
+docker run -d --name meshsim-node$HSID \
 	--privileged \
 	--network mesh \
-	--hostname synapse$HSID \
-	-e SYNAPSE_SERVER_NAME=synapse${HSID} \
+	--hostname meshsim-node$HSID \
+	-e SYNAPSE_SERVER_NAME=meshsim-node${HSID} \
 	-e SYNAPSE_REPORT_STATS=no \
 	-e SYNAPSE_ENABLE_REGISTRATION=yes \
 	-e SYNAPSE_LOG_LEVEL=INFO \

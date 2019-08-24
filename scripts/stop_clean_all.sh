@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ids=`docker container ls -f name=synapse -q -a`
+ids=`docker container ls -f name=meshsim-node -q -a`
 
 if [[ ! -z $ids ]]
 then
