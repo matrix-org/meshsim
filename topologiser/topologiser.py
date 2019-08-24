@@ -49,7 +49,7 @@ if (sys.version_info < (3, 5)):
 
 
 @app.route("/routes", methods=["PUT"])
-def set_routes():
+async def set_routes():
     # [
     #   {
     #       dst: server,
@@ -57,7 +57,7 @@ def set_routes():
     #   }, ...
     # ]
     routes = request.get_json()
-    return provider.update_routes(routes)
+    return await provider.update_routes(routes)
 
 
 @app.route("/health", methods=["PUT"])

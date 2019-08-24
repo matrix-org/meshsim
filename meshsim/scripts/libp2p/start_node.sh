@@ -49,5 +49,7 @@ docker run -d --name meshsim-node$HSID \
 	--hostname meshsim-node$HSID \
 	-p $((19000 + HSID)):3000 \
 	-e PROXY_DUMP_PAYLOADS=1 \
+	-e LOG_HOST=$HOST_IP \
+	-e NODE_HOST=meshsim-node$HSID \
 	-e TOPOLOGISER_MODE=libp2p \
 	p2pd-meshsim

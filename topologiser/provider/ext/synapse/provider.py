@@ -13,7 +13,7 @@ POSTGRES_PORT = os.environ.get("POSTGRES_PORT", 5432)
 
 
 class SynapseProvider(BaseProvider):
-    def update_routes(self, routes):
+    async def update_routes(self, routes):
         dest_to_costs = {}
 
         result = ''

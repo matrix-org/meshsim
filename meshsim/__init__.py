@@ -125,6 +125,20 @@ async def on_incoming_log():
                     "event": event_id,
                 }
             )
+    elif msg == "Libp2pReceive":
+        source = args["source"]
+        app.logger.info(
+            f"{server} Sending {source} -> {server}")
+        await event_notif_queue.put(
+            {
+                "event_type": "sending",
+                "source": source,
+                "target": server,
+                "path": current_app.mesh.get_path(current_app.node_provider.peer_node_id(source), name_to_id(server)),
+                "event": event_id,
+            }
+        )
+
     return ""
 
 

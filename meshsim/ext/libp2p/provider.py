@@ -9,6 +9,13 @@ class Libp2pProvider(BaseProvider):
         super().__init__()
         self.topic = "test-topic"
         self.subscribed_nodes = []
+        self.node_identities = {}
+
+    def peer_node_id(self, peer_id):
+        for node_id, identity in self.node_identities:
+            if identity['id'] == peer_id:
+                return node_id
+        return None
 
     async def start_node(self, id, host):
         proc = await asyncio.create_subprocess_exec(
@@ -23,7 +30,8 @@ class Libp2pProvider(BaseProvider):
     async def bootstrap(self):
         for node_id in self.nodes:
             if not node_id in self.subscribed_nodes:
-                await self.subscribe_to_topic(node_id)
+                resp = await self.subscribe_to_topic(node_id)
+                self.node_identities[node_id] = resp['identity']
                 self.subscribed_nodes.append(node_id)
 
     @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
@@ -31,6 +39,7 @@ class Libp2pProvider(BaseProvider):
         resp_raw = await self.post("http://localhost:%d/libp2p/subscribe/%s" % (19000 + id, self.topic))
         resp = json.loads(resp_raw)
         current_app.logger.info(resp)
+        return resp
 
     @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
     async def send_message_from_node(self, id, message):
