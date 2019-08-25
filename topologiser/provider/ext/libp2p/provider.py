@@ -66,7 +66,7 @@ class Libp2pProvider(BaseProvider):
         current_app.logger.info(f"Disconnect from {host}: {resp}")
         return resp
 
-    @retry(wait=wait_fixed(0.05), stop=stop_after_attempt(10))
+    @retry(wait=wait_fixed(1), stop=stop_after_attempt(15))
     async def get_peer(self, host):
         resp = await self.get("http://%s:%d/libp2p/identity" % (host, 3000))
         return json.loads(resp)
