@@ -20,7 +20,7 @@
 import os
 import sys
 import json
-from flask import Flask, request, abort, jsonify, send_from_directory
+from quart import Quart, request, abort, jsonify, send_from_directory
 
 
 abspath = os.path.abspath(__file__)
@@ -37,7 +37,7 @@ else:
     raise ValueError(
         "Unsupported or missing topologiser mode: {}".format(TOPOLOGISER_MODE))
 
-app = Flask(__name__, static_url_path='')
+app = Quart(__name__, static_url_path='')
 provider_blueprint = provider.blueprint()
 if provider_blueprint:
     app.register_blueprint(provider_blueprint)
@@ -56,12 +56,12 @@ async def set_routes():
     #       via: server
     #   }, ...
     # ]
-    routes = request.get_json()
+    routes = await request.get_json()
     return await provider.update_routes(routes)
 
 
 @app.route("/health", methods=["PUT"])
-def set_network_health():
+async def set_network_health():
     # {
     #     peers: [
     #         {
@@ -80,7 +80,7 @@ def set_network_health():
     #         }, ...
     #     ]
     # }
-    health = request.get_json()
+    health = await request.get_json()
     return provider.update_health(health)
 
 

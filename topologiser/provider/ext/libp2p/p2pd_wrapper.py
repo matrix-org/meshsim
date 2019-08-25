@@ -48,9 +48,10 @@ class P2PDWrapper():
         return self.__send_request(req, Response)
 
     def next_pubsub_message(self):
-        resp = recv_message(self.client, PSMessage)
+        msg = recv_message(self.client, PSMessage)
         return {
-            'source': bitcoin.base58.encode(resp['from'])
+            'event_id': msg.data.decode("UTF-8"),
+            'source': bitcoin.base58.encode(getattr(msg, 'from'))
         }
 
     def identify(self):
@@ -59,7 +60,7 @@ class P2PDWrapper():
         resp = self.__send_request(req, Response)
         return {
             'id': bitcoin.base58.encode(resp.identify.id),
-            'addrs': [str(Multiaddr(addr)) for addr in resp.identify.addrs]
+            'addrs': [str(Multiaddr(addr)) for addr in resp.identify.addrs[1:]]
         }
 
     def __send_request(self, req, resp_type):

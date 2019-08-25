@@ -550,10 +550,13 @@ exampleSocket.onmessage = function(event) {
         .attrTween("transform", translateAlong(hop, backwards));
     }
   } else if (event_data.event_type == "receive") {
-    const target = parseInt(event_data.target.replace("synapse", ""));
+    const target = parseInt(event_data.target.replace("meshsim-node", ""));
 
     // we should have already seen this message received; now delete it
-    svg.select("#" + eventIdToMessageId(target, event_data.event)).remove();
+    const event = svg.select(
+      "#" + eventIdToMessageId(target, event_data.event)
+    );
+    if (event !== undefined) event.remove();
 
     const halo = svg
       .append("circle")

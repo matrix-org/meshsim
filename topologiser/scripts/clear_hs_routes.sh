@@ -10,7 +10,9 @@ ip ro flush all
 ip ro add $GW dev eth0
 
 # Postgres is dockerised, running in the same network. Ensure we don't kill connectivity.
-ip ro add $POSTGRES_HOST dev eth0
+if [ -n "$POSTGRES_HOST" ]; then
+    ip ro add $POSTGRES_HOST dev eth0
+fi
 
 ip ro add blackhole $NETWORK/16
 ip ro add default via $GW

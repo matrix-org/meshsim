@@ -21,7 +21,7 @@ import subprocess
 
 from quart import current_app
 from math import sqrt
-from tenacity import retry, wait_fixed
+from tenacity import retry, wait_fixed, stop_after_attempt
 
 
 class Server(object):
@@ -52,7 +52,7 @@ class Server(object):
         self.ip = await self.provider.get_node_ip(self.id)
         self.mac = await self.provider.get_node_mac(self.id)
 
-    @retry(wait=wait_fixed(1))
+    @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
     async def set_routes(self, routes):
         # [
         #   {
@@ -63,11 +63,10 @@ class Server(object):
         current_app.logger.info(
             "setting routes for %d: %s", self.id, json.dumps(routes, indent=4))
         r = await self.provider.set_node_routes(self.id, routes)
-
         current_app.logger.info(
             "Set route with result for %d: %s", self.id, r)
 
-    @retry(wait=wait_fixed(1))
+    @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
     async def set_network_health(self, health):
         # {
         #     peers: [

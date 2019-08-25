@@ -43,12 +43,14 @@ set -x
 # ...or whatever our bridge is, as PMTU doesn't seem to be working
 # and otherwise we'll get locked out of the guest.
 
+HSID=$1
+HOST_IP=$2
+
 docker run -d --name meshsim-node$HSID \
 	--privileged \
 	--network mesh \
 	--hostname meshsim-node$HSID \
 	-p $((19000 + HSID)):3000 \
-	-e PROXY_DUMP_PAYLOADS=1 \
 	-e LOG_HOST=$HOST_IP \
 	-e NODE_HOST=meshsim-node$HSID \
 	-e TOPOLOGISER_MODE=libp2p \

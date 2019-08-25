@@ -1,4 +1,6 @@
 import asyncio
+import json
+from quart import current_app
 from tenacity import retry, wait_fixed, stop_after_attempt
 
 from ...provider import BaseProvider
@@ -12,14 +14,14 @@ class Libp2pProvider(BaseProvider):
         self.node_identities = {}
 
     def peer_node_id(self, peer_id):
-        for node_id, identity in self.node_identities:
-            if identity['id'] == peer_id:
+        for node_id in self.node_identities:
+            if self.node_identities[node_id]['id'] == peer_id:
                 return node_id
         return None
 
     async def start_node(self, id, host):
         proc = await asyncio.create_subprocess_exec(
-            "./meshshim/scripts/libp2p/start_node.sh", str(id), host
+            "./meshsim/scripts/libp2p/start_node.sh", str(id), host
         )
         code = await proc.wait()
         if code != 0:
