@@ -25,9 +25,14 @@ class Libp2pProvider(BaseProvider):
         for route in routes:
             server_id = route['dst']['id']
             hostname = f"meshsim-node{server_id}"
-            new_connected_nodes.append(hostname)
+            current_app.logger.info(route)
+
             if route['via'] is None:
                 continue
+
+            if route['via']['id'] == server_id:
+                # direct connection
+                new_connected_nodes.append(hostname)
 
             result += self.run([
                 "./scripts/add_hs_route.sh", route['dst']['ip'], route['via']['ip'],
@@ -42,16 +47,24 @@ class Libp2pProvider(BaseProvider):
                 futures.append(self.connect_to(node))
 
         await asyncio.gather(*futures)
+
         self.connected_nodes = new_connected_nodes
+        current_app.logger.info(
+            f"Connected to: {new_connected_nodes}")
+
         return result
 
     async def connect_to(self, host):
         peer = await self.get_peer(host)
-        return self.p2pd().connect(peer)
+        resp = self.p2pd().connect(peer)
+        current_app.logger.info(f"Connect to {host}: {resp}")
+        return resp
 
     async def disconnect_from(self, host):
         peer = await self.get_peer(host)
-        return self.p2pd().disconnect(peer)
+        resp = self.p2pd().disconnect(peer)
+        current_app.logger.info(f"Disconnect from {host}: {resp}")
+        return resp
 
     @retry(wait=wait_fixed(0.05), stop=stop_after_attempt(10))
     async def get_peer(self, host):

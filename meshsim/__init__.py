@@ -132,14 +132,15 @@ async def on_incoming_log():
         source = f"meshsim-node{source_node_id}"
         app.logger.info(
             f"{server} Sending {event_id}. {source} -> {server}")
-        await event_notif_queue.put(
-            {
-                "event_type": "receive",
-                "source": source,
-                "target": server,
-                "event": event_id,
-            }
-        )
+        if source != server:
+            await event_notif_queue.put(
+                {
+                    "event_type": "receive",
+                    "source": source,
+                    "target": server,
+                    "event": event_id,
+                }
+            )
 
     return ""
 
