@@ -22,7 +22,7 @@ class SynapseProvider(BaseProvider):
             raise Exception("Failed to start node")
         self.nodes.append(id)
 
-    @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
+    @retry(wait=wait_fixed(1))
     async def bootstrap(self):
         if self.room == None:
             await self.setup_room()

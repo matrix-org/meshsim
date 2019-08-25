@@ -52,7 +52,7 @@ class Server(object):
         self.ip = await self.provider.get_node_ip(self.id)
         self.mac = await self.provider.get_node_mac(self.id)
 
-    @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
+    @retry(wait=wait_fixed(1))
     async def set_routes(self, routes):
         # [
         #   {
@@ -66,7 +66,7 @@ class Server(object):
         current_app.logger.info(
             "Set route with result for %d: %s", self.id, r)
 
-    @retry(wait=wait_fixed(1), stop=stop_after_attempt(5))
+    @retry(wait=wait_fixed(1))
     async def set_network_health(self, health):
         # {
         #     peers: [
