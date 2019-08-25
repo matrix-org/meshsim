@@ -14,6 +14,7 @@ from .p2pd_wrapper import P2PDWrapper
 class Libp2pProvider(BaseProvider):
     def __init__(self):
         self.connected_nodes = []
+        self.host_to_peer = {}
 
     def p2pd(self):
         return P2PDWrapper()
@@ -57,12 +58,12 @@ class Libp2pProvider(BaseProvider):
     async def connect_to(self, host):
         peer = await self.get_peer(host)
         resp = self.p2pd().connect(peer)
+        self.host_to_peer[host] = peer
         current_app.logger.info(f"Connect to {host}: {resp}")
         return resp
 
     async def disconnect_from(self, host):
-        peer = await self.get_peer(host)
-        resp = self.p2pd().disconnect(peer)
+        resp = self.p2pd().disconnect(self.host_to_peer[host])
         current_app.logger.info(f"Disconnect from {host}: {resp}")
         return resp
 
