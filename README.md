@@ -1,11 +1,11 @@
-### Simulates a mesh of homeservers with Docker.
+### Simulates a mesh of p2p nodes with Docker.
 
 ![meshsim](docs/meshsim.gif)
 
-Meshsim lets you define and manage an arbitrary network of Matrix homeservers
-in docker containers via a web interface. Servers are instantiated by clicking
+Meshsim lets you define and manage an arbitrary network of p2p nodes
+in docker containers via a web interface. Nodes are instantiated by clicking
 on the canvas, and the network topology and latency may be adjusted by dragging
-servers around. Servers connect to the nearest 5 nodes within the given latency
+servers around. Nodes connect to the nearest 5 peers within the given latency
 threshold.
 
 The bandwidth and latency of individual network links can be overridden by clicking
@@ -18,20 +18,32 @@ animated circles which follow the network links between servers. When a server
 processes an inbound event, it shows an animation of the event expanding and popping
 like a bubble.
 
-The default docker image that meshsim launches is https://github.com/matrix-org/meshsim-docker
+Meshsim currenty supports two node implementations:
+
+- [Matrix Homeservers](https://github.com/matrix-org/meshsim-docker)
+- [Libp2p Daemons](https://github.com/valer-cara/meshsim-node-p2pd)
+
+#### Matrix Homeservers
+
+The default docker image that meshsim launches when in `synapse` mode is https://github.com/matrix-org/meshsim-docker
 which provides both a Synapse and a [coap-proxy](https://github.com/matrix-org/coap-proxy)
 for low-bandwidth Matrix transport experimentation.
+
+When running in this mode a local postgres server shared between the nodes is required.
 
 Further details can be found in our FOSDEM 2019 talk about meshsim and coap-proxy at:
 https://matrix.org/blog/2019/03/12/breaking-the-100bps-barrier-with-matrix-meshsim-coap-proxy/
 
+#### Libp2p Daemons
+
+When running in `libp2p` mode it launches https://github.com/valer-cara/meshsim-node-p2pd which provides libp2p-daemon and the sidecar process that does that helps with instrumentation and orchestration.
+
 #### Notes
 
-- Requires a HS with a Dockerfile which lets it be run in a Debianish container to support KSM.
+- Requires a node with a Dockerfile which lets it be run in a Debianish container to support KSM.
 - Uses KSM to share memory between the server containers.
-- Uses a local postgres shared across all the servers as their DB for simplicity.
 - Uses Flask and NetworkX to model the network topology in python.
-  - It puppets the dockerized HSes via `docker run` and talking HTTP to a `topologiser` daemon that runs on the container.
+  - It puppets the dockerized nodes via `docker run` and talking HTTP to a `topologiser` daemon that runs on the container.
   - We deliberately use this rather than docker-compose or docker stack/swarm given the meshsim itself is acting as an orchestrator.
 - Uses D3 to visualise and control the network topology in browser.
 - Manually puppets the routing tables of the servers based on running dijkstra on the network topo
@@ -59,7 +71,7 @@ Now usable in general, but may be a bit fiddly to get up and running.
   meshsim, etc on the host). On MacOS `host.docker.internal` will work,
   otherwise run `docker network inspect mesh` and find the Gateway IP.
 
-- Install postgres
+- Install postgres (only for `synapse` mode)
   - `createuser -P synapse` # password synapseftw
   - edit postgresql.conf to ensure postgres is listening on an IP that docker
     containers will be able to hit. Set `listen_addresses = '<bridge ip>,localhost'`,
@@ -94,93 +106,131 @@ echo 10000 > /sys/kernel/mm/ksm/pages_to_scan # 40MB of pages at a time
 grep -H '' /sys/kernel/mm/ksm/run/*
 ```
 
-- create a empty directory, e.g. `matrix-low-bandwidth`
+- create a empty directory, e.g. `meshsim-workspace`
 
 - check out meshsim
 
 ```
-matrix-low-bandwidth$ git clone https://github.com/matrix-org/meshsim.git
+meshsim-workspace$ git clone https://github.com/matrix-org/meshsim.git
 ```
 
-- Build the (KSM-capable) docker image:
-  - Clone `synapse` repo and checkout the `babolivier/low-bandwidth` branch (inside the `matrix-low-bandwidth` directory)
+##### Synapse nodes
+
+Build the (KSM-capable) docker image:
+
+- Clone `synapse` repo and checkout the `babolivier/low-bandwidth` branch (inside the `meshim-workspace` directory)
 
 ```
-matrix-low-bandwidth$ git clone https://github.com/matrix-org/synapse.git
-matrix-low-bandwidth$ cd synapse
+meshim-workspace$ git clone https://github.com/matrix-org/synapse.git
+meshim-workspace$ cd synapse
 synapse$ git checkout babolivier/low-bandwidth
 ```
 
-- Clone the `meshsim-docker` repo (inside the `matrix-low-bandwidth` directory)
+- Clone the `meshsim-docker` repo (inside the `meshim-workspace` directory)
 
 ```
-matrix-low-bandwidth$ git clone https://github.com/matrix-org/meshsim-docker.git
+meshim-workspace$ git clone https://github.com/matrix-org/meshsim-docker.git
 ```
 
-- Clone the `coap-proxy` repo (inside the `matrix-low-bandwidth` directory)
+- Clone the `coap-proxy` repo (inside the `meshim-workspace` directory)
 
 ```
-matrix-low-bandwidth$ git clone https://github.com/matrix-org/coap-proxy.git
+meshim-workspace$ git clone https://github.com/matrix-org/coap-proxy.git
 ```
 
 - Run `docker build -t synapse -f meshsim-docker/Dockerfile .` from the top of the
-  `matrix-low-bandwidth` directory (**_not_** inside the `synapse` repo)
+  `meshim-workspace` directory (**_not_** inside the `synapse` repo)
 
-- Optionally edit `start_hs.sh` to add bind mount to a local working copy of
+- Optionally edit `meshsim/scripts/synapse/start_node.sh` to addind mount to a local working copy of
   synapse. This allows doing synapse dev without having to rebuild images. See
-  `start_hs.sh` for details. An example of the `docker run` command in `start_hs.sh` is below:
+  `start_node.sh` for details. An example of the `docker run` command in `start_node.sh` is below:h
 
 ```
-docker run -d --name synapse$HSID \
+docker run -d --name meshsim-node$HSID \
 	--privileged \
 	--network mesh \
-	--hostname synapse$HSID \
-	-e SYNAPSE_SERVER_NAME=synapse${HSID} \
+	--hostname meshsim-node$HSID \
+	-e SYNAPSE_SERVER_NAME=meshsim-node${HSID} \
 	-e SYNAPSE_REPORT_STATS=no \
 	-e SYNAPSE_ENABLE_REGISTRATION=yes \
 	-e SYNAPSE_LOG_LEVEL=INFO \
 	-e POSTGRES_DB=synapse$HSID \
 	-e POSTGRES_PASSWORD=synapseftw \
+	-e TOPOLOGISER_MODE=synapse \
 	-p $((18000 + HSID)):8008 \
 	-p $((19000 + HSID)):3000 \
 	-p $((20000 + HSID)):5683/udp \
-	-e POSTGRES_HOST=$HOST_IP \
+	-e POSTGRES_HOST=$POSTGRES_IP \
 	-e SYNAPSE_LOG_HOST=$HOST_IP \
 	-e SYNAPSE_USE_PROXY=1 \
 	-e PROXY_DUMP_PAYLOADS=1 \
-	--mount type=bind,source=/home/user/matrix-low-bandwidth/coap-proxy,destination=/proxy \
-	--mount type=bind,source=/home/user/matrix-low-bandwidth/synapse/synapse,destination=/usr/local/lib/python3.7/site-packages/synapse \
+	--mount type=bind,source=/home/user/meshim-workspace/coap-proxy,destination=/proxy \
+	--mount type=bind,source=/home/user/meshim-workspace/synapse/synapse,destination=/usr/local/lib/python3.7/site-packages/synapse \
 	synapse
 ```
 
-- check you can start a synapse via `./start_hs.sh 1 $DOCKER_IP` with DOCEKR_IP being the docker network gateway IP.
+- check you can start a synapse via `./meshsim/scripts/synapse/start_node.sh 1 $DOCKER_IP` with DOCKER_IP being the docker network gateway IP.
   - If the template import fails with something about `en_GB`, make sure you have that locale generated. Replacing `en_GB` with `en_US` or whatever your locale is in `synapse_template.sql` is also sufficient.
 - check if it's running with `docker stats`
-- check the supervisor logs with `docker logs -f synapse1` and that it can talk to your postgres ok
-- log into the container to poke around with `docker exec -it synapse1 /bin/bash`
+- check the supervisor logs with `docker logs -f meshshim-node1` and that it can talk to your postgres ok
+- log into the container to poke around with `docker exec -it meshsim-node1 /bin/bash`
 
   - Actual synapse logs are located at `/var/log/supervisor/synapse*`
 
-- Check you can connect to its synapse at http://localhost:18001 (ports are 18000 + hsid).
+- Check you can connect to its synapse at http://localhost:18001 (ports are 18000 + node_id).
   - Requires a Riot running on http on localhost or similar to support CORS to non-https
   - Initial user sign up may time out due to trying to connect to Riot-bot. Simply refresh the page and you should get in fine.
   - The KSM'd dockerfile autoprovisions an account on the HS called l/p matthew/secret for testing purposes.
-- Check that the topologiser is listening at http://localhost:19001 (ports are 19000 + hsid)
+- Check that the topologiser is listening at http://localhost:19001 (ports are 19000 + node_id)
 
   - Don't expect to navigate to this URL and see anything more than a 404. As long as _something_ is listening at this port, things are set up correctly.
 
-- shut it down nicely `./stop_clean_all.sh`
+- shut it down nicely `./meshsim/scripts/stop_clean_all.sh`
 
-- run meshsim: `./meshsim.py <HOST_IP>` where `<HOST_IP>` is the docker
+- run meshsim: `./meshsim.py -P synapse <HOST_IP>` where `<HOST_IP>` is the docker
   network IP for the host (c.f. "create a docker network" step). Run
   `./meshsim.py -h` for more options.
 - connect to meshsim http://localhost:3000
-- click to create HSes
+- click to create nodes
 - drag to move them around
 - => profit
 
 You can log into the individual synapse containers as `docker exec -it synapse$N /bin/bash` to traceroute, ping
 and generally see what see what's going on.
+
+##### Libp2p daemon nodes
+
+Build the docker image:
+
+- Clone `libp2p dameon repo`
+
+```
+workspace$ git clone https://github.com/valer-cara/go-libp2p-daemon
+```
+
+- Clone the `meshsim-node-p2pd` repo (inside the `meshim-workspace` directory)
+
+```
+meshim-workspace$ git clone https://github.com/valer-cara/go-libp2p-daemon
+```
+
+- Run `docker build -t p2pd-meshsim -f ./meshsim-node-p2pd/Dockerfile .` from the top of the
+  `meshim-workspace` directory (**_not_** inside the `synapse` repo)
+
+- check you can start a p2pd via `./meshsim/scripts/libp2p/start_node.sh 1 $DOCKER_IP` with DOCKER_IP being the docker network gateway IP.
+- Check that the topologiser is listening at http://localhost:19001 (ports are 19000 + node_id)
+
+  - Don't expect to navigate to this URL and see anything more than a 404. As long as _something_ is listening at this port, things are set up correctly.
+
+- shut it down nicely `./meshsim/scripts/stop_clean_all.sh`
+
+- run meshsim: `./meshsim.py -P libp2p <HOST_IP>` where `<HOST_IP>` is the docker
+  network IP for the host (c.f. "create a docker network" step). Run
+  `./meshsim.py -h` for more options.
+- connect to meshsim http://localhost:3000
+- click to create nodes
+- drag to move them around
+- => profit
 
 #### Using the CoAP proxy
 
