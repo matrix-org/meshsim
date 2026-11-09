@@ -155,7 +155,7 @@ def write_destination_health(dest_to_cost):
                 )
 
     try:
-        requests.get("http://localhost:8008/_matrix/client/r0/admin/server_health")
+        requests.get("http://localhost:8008/_matrix/client/r0/admin/server_health", timeout=30)
     except Exception as e:
         pass
 
